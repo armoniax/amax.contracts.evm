@@ -143,6 +143,8 @@ abstract contract Governable is Ownable {
     function _isProposalExpired(uint startTime) internal view returns(bool) {   
         return block.timestamp > startTime + PROPOSAL_DURATION;    
     }
+
+    function _isBalanceEnough(address account, uint256 amount) internal view virtual returns(bool);
 }
 
 abstract contract Mintable is Governable {
@@ -215,7 +217,6 @@ abstract contract Mintable is Governable {
     }
 }
 
-
 abstract contract Burnable is Governable {
 
     event BurnProposed(address indexed proposer, uint256 amount);
@@ -237,7 +238,7 @@ abstract contract Burnable is Governable {
     */
     function proposeBurn(uint256 amount) public onlyProposer() returns(bool) {
         require(amount > 0, "Burnable: zero amount not allowed" );
-        _checkBurnBalance(address(this), amount);
+        require(_isBalanceEnough(address(this), amount), "Burnable: burn amount exceeds contract balance");
         require(!_isBurnApprovable(msg.sender), "Burnable: proposal is approving" );
 
         delete burnProposals[msg.sender];
@@ -253,7 +254,7 @@ abstract contract Burnable is Governable {
 
         require( _isBurnApprovable(proposer), "Burnable: proposal is not approvable" );
         require( burnProposals[proposer].amount == amount, "Burnable: amount mismatch" );
-        _checkBurnBalance(address(this), amount);
+        require(_isBalanceEnough(address(this), amount), "Burnable: burn amount exceeds contract balance");
         require( !_accountExistIn(msg.sender, burnProposals[proposer].approvers),
             "Burnable: approver has already approved" );
 
@@ -280,10 +281,86 @@ abstract contract Burnable is Governable {
             && !_isProposalExpired(burnProposals[proposer].startTime);
     }
 
-    function _checkBurnBalance(address account, uint256 amount) internal view virtual;
 }
 
-contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, Mintable, Burnable{
+abstract contract ForceTransferProposal is Governable {
+
+    event ForceTransferProposed(address indexed proposer, address indexed from, address indexed to, uint256 amount);
+    event ForceTransferApproved(address indexed approver, address indexed proposer, bool approved, uint256 amount);
+    // event ForceTransferEmitted(address indexed proposer, uint256 amount, address indexed emitter);
+
+    struct ForceTransferProposalData {
+        address                     from;
+        address                     to;
+        uint256                     amount;
+        uint                        startTime;
+        address[]                   approvers;
+    }
+
+    mapping (address => ForceTransferProposalData) public forceTransferProposals; /** proposer -> ForceTransferProposalData */
+
+    /**
+    * @dev propose to forceTransfer
+    * @param amount amount to forceTransfer
+    * @return forceTransfer propose ID
+    */
+    function proposeForceTransfer(address from, address to, uint256 amount) public onlyProposer() returns(bool) {
+        require(amount > 0, "ForceTransferProposal: zero amount not allowed" );
+        require(_isBalanceEnough(from, amount), "Burnable: transfer amount exceeds balance of from");
+        require(!_isForceTransferApprovable(msg.sender), "ForceTransferProposal: proposal is approving" );
+
+        delete forceTransferProposals[msg.sender];
+        //forceTransfer by a proposer for once only otherwise would be overwritten
+        forceTransferProposals[msg.sender].from = from;
+        forceTransferProposals[msg.sender].to = to;
+        forceTransferProposals[msg.sender].amount = amount;
+        forceTransferProposals[msg.sender].startTime = block.timestamp;
+        emit ForceTransferProposed(msg.sender, from, to, amount);
+
+        return true;
+    }
+
+    function approveForceTransfer(address proposer, bool approved, address from, address to, uint256 amount) public onlyApprover() returns(bool) {
+
+        ForceTransferProposalData memory proposal = forceTransferProposals[proposer];
+        require( _isForceTransferApprovable(proposer), "ForceTransferProposal: proposal is not approvable" );
+        require( proposal.from == from && proposal.to == to && proposal.amount == amount, 
+            "ForceTransferProposal: amount mismatch" );
+        require(_isBalanceEnough(from, amount), "Burnable: transfer amount exceeds balance of from");
+        require( !_accountExistIn(msg.sender, proposal.approvers),
+            "ForceTransferProposal: approver has already approved" );
+
+        emit ForceTransferApproved(msg.sender, proposer, approved, amount); 
+
+        bool needExec = false;
+        if (approved) {
+            forceTransferProposals[proposer].approvers.push(msg.sender);
+            if (forceTransferProposals[proposer].approvers.length == APPROVER_COUNT) {
+                needExec = true;
+                delete forceTransferProposals[proposer];  
+            }
+        } else {
+            delete forceTransferProposals[proposer];           
+        }
+
+        if (needExec)
+            _doForceTransfer(proposal.from, proposal.to, amount);
+
+        return true;
+    }
+
+    function _doForceTransfer(address from, address to, uint256 amount) internal virtual;
+
+
+    function _isForceTransferApprovable(address proposer) internal view returns(bool) {
+        return forceTransferProposals[proposer].from != address(0)
+            && forceTransferProposals[proposer].to != address(0)
+            && forceTransferProposals[proposer].amount > 0 
+            && !_isProposalExpired(forceTransferProposals[proposer].startTime);
+    }
+}
+
+contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, Mintable, Burnable, ForceTransferProposal {
 
 
     uint8 private constant _decimals = 4;
@@ -314,15 +391,16 @@ contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, Mintable, Burnable{
         _burn(to, amount);
     }
 
-    function _checkBurnBalance(address account, uint256 amount) internal view override {
-        require(balanceOf(account) >= amount, "burn amount exceeds balance");
+    function _doForceTransfer(address from, address to, uint256 amount) internal override {
+        super._transfer(from, to, amount); // ignore the paused and frozen strategy
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount)
-        internal
-        whenNotPaused
-        override
-    {
-        super._beforeTokenTransfer(from, to, amount);
+    function _isBalanceEnough(address account, uint256 amount) internal view override returns(bool) {
+        return balanceOf(account) >= amount;
     }
+
+   function _transfer(address sender, address recipient, uint256 amount) internal whenNotPaused override {
+        super._transfer(sender, recipient, amount);
+    }
+
 }
