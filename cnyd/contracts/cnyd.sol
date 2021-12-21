@@ -151,13 +151,13 @@ abstract contract Mintable is Governable {
     event MintApproved(address indexed approver, address indexed proposer, bool approved, uint256 amount);
     // event MintEmitted(address indexed proposer, uint256 amount, address indexed emitter);
 
-    struct ProposalMintData {
+    struct MintProposalData {
         uint256                     amount;
         uint                        startTime;
         address[]                   approvers;
     }
 
-    mapping (address => ProposalMintData) public proposalMints; /** proposer -> ProposalMintData */
+    mapping (address => MintProposalData) public mintProposals; /** proposer -> MintProposalData */
 
     address public holder;
 
@@ -175,10 +175,10 @@ abstract contract Mintable is Governable {
         require(amount > 0, "Mintable: zero amount not allowed" );
         require(!_isApprovable(msg.sender), "Mintable: proposal is approving" );
 
-        delete proposalMints[msg.sender];
+        delete mintProposals[msg.sender];
         //mint by a proposer for once only otherwise would be overwritten
-        proposalMints[msg.sender].amount = amount;
-        proposalMints[msg.sender].startTime = block.timestamp;
+        mintProposals[msg.sender].amount = amount;
+        mintProposals[msg.sender].startTime = block.timestamp;
         emit MintProposed(msg.sender, amount);
 
         return true;
@@ -187,20 +187,20 @@ abstract contract Mintable is Governable {
     function approveMint(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
 
         require( _isApprovable(proposer), "Mintable: proposal is not approvable" );
-        require( proposalMints[proposer].amount == amount, "Mintable: amount mismatch" );
-        require( !_accountExistIn(msg.sender, proposalMints[proposer].approvers),
+        require( mintProposals[proposer].amount == amount, "Mintable: amount mismatch" );
+        require( !_accountExistIn(msg.sender, mintProposals[proposer].approvers),
             "Mintable: approver has already approved" );
 
         emit MintApproved(msg.sender, proposer, approved, amount); 
 
         if (approved) {
-            proposalMints[proposer].approvers.push(msg.sender);
-            if (proposalMints[proposer].approvers.length == APPROVER_COUNT) {
+            mintProposals[proposer].approvers.push(msg.sender);
+            if (mintProposals[proposer].approvers.length == APPROVER_COUNT) {
                 _doMint(holder, amount);
-                delete proposalMints[proposer];  
+                delete mintProposals[proposer];  
             }
         } else {
-            delete proposalMints[proposer];           
+            delete mintProposals[proposer];           
         }
 
         return true;
@@ -210,8 +210,8 @@ abstract contract Mintable is Governable {
 
 
     function _isApprovable(address proposer) internal view returns(bool) {
-        return proposalMints[proposer].amount > 0 
-            && !_isProposalExpired(proposalMints[proposer].startTime);
+        return mintProposals[proposer].amount > 0 
+            && !_isProposalExpired(mintProposals[proposer].startTime);
     }
 }
 
