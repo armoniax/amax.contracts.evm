@@ -119,6 +119,21 @@ abstract contract Governable is Ownable {
         _;
     }
 
+    modifier onlyPositiveAmount(uint256 amount) {
+        require(amount > 0, "Governable: zero amount not allowed" );
+        _;
+    }
+
+    modifier onlyNonZeroAccount(address account) {
+        require(account != address(this), "Governable: zero account not allowed" );
+        _;
+    }
+
+    modifier validApproverIndex(uint256 index) {
+        require(index < APPROVER_COUNT, "Governable: approver index invalid" );
+        _;
+    }
+
     function _isApproverDuplicated(address[APPROVER_COUNT] memory _approvers) internal pure returns(bool) {
         for (uint256 i = 0; i < _approvers.length; i++) {
             for (uint256 j = i + 1; j < _approvers.length; j++) {
@@ -201,8 +216,11 @@ abstract contract Mintable is Governable {
     * @param amount amount to mint
     * @return mint propose ID
     */
-    function proposeMint(uint256 amount) public onlyProposer() returns(bool) {
-        require(amount > 0, "Mintable: zero amount not allowed" );
+    function proposeMint(uint256 amount) public 
+        onlyProposer() 
+        onlyPositiveAmount(amount) 
+        returns(bool) 
+    {
         require(!_isMintApprovable(msg.sender), "Mintable: proposal is approving" );
 
         delete mintProposals[msg.sender];
@@ -217,7 +235,7 @@ abstract contract Mintable is Governable {
     function approveMint(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
 
         require( _isMintApprovable(proposer), "Mintable: proposal is not approvable" );
-        require( mintProposals[proposer].amount == amount, "Mintable: amount mismatch" );
+        require( mintProposals[proposer].amount == amount, "Mintable: proposal data mismatch" );
         require( !_accountExistIn(msg.sender, mintProposals[proposer].approvers),
             "Mintable: approver has already approved" );
 
@@ -264,8 +282,11 @@ abstract contract Burnable is Governable {
     * @param amount amount to burn
     * @return burn propose ID
     */
-    function proposeBurn(uint256 amount) public onlyProposer() returns(bool) {
-        require(amount > 0, "Burnable: zero amount not allowed" );
+    function proposeBurn(uint256 amount) public 
+        onlyProposer()
+        onlyPositiveAmount(amount) 
+        returns(bool) 
+    {
         require(_isBalanceEnough(address(this), amount), "Burnable: burn amount exceeds contract balance");
         require(!_isBurnApprovable(msg.sender), "Burnable: proposal is approving" );
 
@@ -281,7 +302,7 @@ abstract contract Burnable is Governable {
     function approveBurn(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
 
         require( _isBurnApprovable(proposer), "Burnable: proposal is not approvable" );
-        require( burnProposals[proposer].amount == amount, "Burnable: amount mismatch" );
+        require( burnProposals[proposer].amount == amount, "Burnable: proposal data mismatch" );
         require(_isBalanceEnough(address(this), amount), "Burnable: burn amount exceeds contract balance");
         require( !_accountExistIn(msg.sender, burnProposals[proposer].approvers),
             "Burnable: approver has already approved" );
@@ -332,9 +353,14 @@ abstract contract ForceTransferProposal is Governable {
     * @param amount amount to forceTransfer
     * @return forceTransfer propose ID
     */
-    function proposeForceTransfer(address from, address to, uint256 amount) public onlyProposer() returns(bool) {
-        require(amount > 0, "ForceTransferProposal: zero amount not allowed" );
-        require(_isBalanceEnough(from, amount), "Burnable: transfer amount exceeds balance of from");
+    function proposeForceTransfer(address from, address to, uint256 amount) public 
+        onlyProposer()
+        onlyNonZeroAccount(from)
+        onlyNonZeroAccount(to)
+        onlyPositiveAmount(amount)
+        returns(bool) 
+    {
+        require(_isBalanceEnough(from, amount), "ForceTransferProposal: transfer amount exceeds balance of from");
         require(!_isForceTransferApprovable(msg.sender), "ForceTransferProposal: proposal is approving" );
 
         delete forceTransferProposals[msg.sender];
@@ -348,15 +374,16 @@ abstract contract ForceTransferProposal is Governable {
         return true;
     }
 
-    function approveForceTransfer(address proposer, bool approved, address from, address to, uint256 amount) public onlyApprover() returns(bool) {
+    function approveForceTransfer(address proposer, bool approved, address from, address to, uint256 amount) public 
+        onlyApprover() returns(bool) 
+    {
 
         ForceTransferProposalData memory proposal = forceTransferProposals[proposer];
         require( _isForceTransferApprovable(proposer), "ForceTransferProposal: proposal is not approvable" );
         require( proposal.from == from && proposal.to == to && proposal.amount == amount, 
             "ForceTransferProposal: amount mismatch" );
         require(_isBalanceEnough(from, amount), "Burnable: transfer amount exceeds balance of from");
-        require( !_accountExistIn(msg.sender, proposal.approvers),
-            "ForceTransferProposal: approver has already approved" );
+        require( !_accountExistIn(msg.sender, proposal.approvers), "ForceTransferProposal: approver has already approved" );
 
         emit ForceTransferApproved(msg.sender, proposer, approved, amount); 
 
@@ -411,12 +438,15 @@ abstract contract SetApproverProposal is Governable {
     * @param newApprover new approver
     * @return setApprover propose ID
     */
-    function proposeSetApprover(uint256 index, address newApprover) public onlyProposer() returns(bool) {
-        require(index < APPROVER_COUNT, "SetApproverProposal: index invalid" );
-        require(newApprover != address(0), "SetApproverProposal: new approver is zero address");
+    function proposeSetApprover(uint256 index, address newApprover) public
+        onlyProposer() 
+        validApproverIndex(index)
+        onlyNonZeroAccount(newApprover)
+        returns(bool) 
+    {
         require(!_isSetApproverApprovable(msg.sender), "SetApproverProposal: proposal is approving" );
 
-        delete setApproverProposals[msg.sender];
+        delete setApproverProposals[msg.sender]; // clear proposal data
         //setApprover by a proposer for once only otherwise would be overwritten
         setApproverProposals[msg.sender].index = index;
         setApproverProposals[msg.sender].newApprover = newApprover;
@@ -426,8 +456,10 @@ abstract contract SetApproverProposal is Governable {
         return true;
     }
 
-    function approveSetApprover(address proposer, bool approved, uint256 index, address newApprover) 
-        public onlyApproverAndOwner() returns(bool) {
+    function approveSetApprover(address proposer, bool approved, uint256 index, address newApprover) public 
+        onlyApproverAndOwner() 
+        returns(bool) 
+    {
 
         SetApproverProposalData memory proposal = setApproverProposals[proposer];
         require( _isSetApproverApprovable(proposer), "SetApproverProposal: proposal is not approvable" );
