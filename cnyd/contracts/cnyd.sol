@@ -237,6 +237,7 @@ abstract contract Burnable is Governable {
     */
     function proposeBurn(uint256 amount) public onlyProposer() returns(bool) {
         require(amount > 0, "Burnable: zero amount not allowed" );
+        _checkBurnBalance(address(this), amount);
         require(!_isBurnApprovable(msg.sender), "Burnable: proposal is approving" );
 
         delete burnProposals[msg.sender];
@@ -252,6 +253,7 @@ abstract contract Burnable is Governable {
 
         require( _isBurnApprovable(proposer), "Burnable: proposal is not approvable" );
         require( burnProposals[proposer].amount == amount, "Burnable: amount mismatch" );
+        _checkBurnBalance(address(this), amount);
         require( !_accountExistIn(msg.sender, burnProposals[proposer].approvers),
             "Burnable: approver has already approved" );
 
@@ -277,6 +279,8 @@ abstract contract Burnable is Governable {
         return burnProposals[proposer].amount > 0 
             && !_isProposalExpired(burnProposals[proposer].startTime);
     }
+
+    function _checkBurnBalance(address account, uint256 amount) internal view virtual;
 }
 
 contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, Mintable, Burnable{
@@ -308,6 +312,10 @@ contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, Mintable, Burnable{
 
     function _doBurn(address to, uint256 amount) internal override {
         _burn(to, amount);
+    }
+
+    function _checkBurnBalance(address account, uint256 amount) internal view override {
+        require(balanceOf(account) >= amount, "burn amount exceeds balance");
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount)
