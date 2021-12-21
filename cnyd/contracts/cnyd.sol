@@ -188,6 +188,10 @@ abstract contract Governable is Ownable {
         return block.timestamp > startTime + PROPOSAL_DURATION;    
     }
 
+    function _isApprovable(uint startTime) internal view returns(bool) {
+        return startTime > 0 && !_isProposalExpired(startTime);
+    }
+
     function _isBalanceEnough(address account, uint256 amount) internal view virtual returns(bool);
 }
 
@@ -221,7 +225,7 @@ abstract contract Mintable is Governable {
         onlyPositiveAmount(amount) 
         returns(bool) 
     {
-        require(!_isMintApprovable(msg.sender), "Mintable: proposal is approving" );
+        require(!_isApprovable(mintProposals[msg.sender].startTime), "Mintable: proposal is approving" );
 
         delete mintProposals[msg.sender];
         //mint by a proposer for once only otherwise would be overwritten
@@ -233,41 +237,36 @@ abstract contract Mintable is Governable {
     }
 
     function approveMint(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
+        MintProposalData memory proposal = mintProposals[proposer];
+        require( _isApprovable(proposal.startTime), "Mintable: proposal is not approvable" );
+        require( proposal.amount == amount, "Mintable: proposal data mismatch" );
+        require( !_accountExistIn(msg.sender, proposal.approvers), "Mintable: approver has already approved" );
 
-        require( _isMintApprovable(proposer), "Mintable: proposal is not approvable" );
-        require( mintProposals[proposer].amount == amount, "Mintable: proposal data mismatch" );
-        require( !_accountExistIn(msg.sender, mintProposals[proposer].approvers),
-            "Mintable: approver has already approved" );
-
-        emit MintApproved(msg.sender, proposer, approved, amount); 
-
+        bool needExec = false;
         if (approved) {
             mintProposals[proposer].approvers.push(msg.sender);
             if (mintProposals[proposer].approvers.length == APPROVER_COUNT) {
-                _doMint(holder, amount);
+                needExec = true;
                 delete mintProposals[proposer];  
             }
         } else {
             delete mintProposals[proposer];           
         }
+        emit MintApproved(msg.sender, proposer, approved, amount); 
+
+        if (needExec) 
+            _doMint(holder, amount);
 
         return true;
     }
 
     function _doMint(address to, uint256 amount) internal virtual;
-
-
-    function _isMintApprovable(address proposer) internal view returns(bool) {
-        return mintProposals[proposer].amount > 0 
-            && !_isProposalExpired(mintProposals[proposer].startTime);
-    }
 }
 
 abstract contract Burnable is Governable {
 
     event BurnProposed(address indexed proposer, uint256 amount);
     event BurnApproved(address indexed approver, address indexed proposer, bool approved, uint256 amount);
-    // event BurnEmitted(address indexed proposer, uint256 amount, address indexed emitter);
 
     struct BurnProposalData {
         uint256                     amount;
@@ -288,9 +287,9 @@ abstract contract Burnable is Governable {
         returns(bool) 
     {
         require(_isBalanceEnough(address(this), amount), "Burnable: burn amount exceeds contract balance");
-        require(!_isBurnApprovable(msg.sender), "Burnable: proposal is approving" );
+        require( !_isApprovable(burnProposals[msg.sender].startTime), "Burnable: proposal is approving" );
 
-        delete burnProposals[msg.sender];
+        delete burnProposals[msg.sender]; // clear proposal data
         //burn by a proposer for once only otherwise would be overwritten
         burnProposals[msg.sender].amount = amount;
         burnProposals[msg.sender].startTime = block.timestamp;
@@ -300,43 +299,38 @@ abstract contract Burnable is Governable {
     }
 
     function approveBurn(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
-
-        require( _isBurnApprovable(proposer), "Burnable: proposal is not approvable" );
-        require( burnProposals[proposer].amount == amount, "Burnable: proposal data mismatch" );
+        BurnProposalData memory proposal = burnProposals[proposer];
+        require( _isApprovable(proposal.startTime), "Burnable: proposal is not approvable" );
+        require( proposal.amount == amount, "Burnable: proposal data mismatch" );
         require(_isBalanceEnough(address(this), amount), "Burnable: burn amount exceeds contract balance");
-        require( !_accountExistIn(msg.sender, burnProposals[proposer].approvers),
+        require( !_accountExistIn(msg.sender, proposal.approvers),
             "Burnable: approver has already approved" );
 
-        emit BurnApproved(msg.sender, proposer, approved, amount); 
-
+        bool needExec = false;
         if (approved) {
             burnProposals[proposer].approvers.push(msg.sender);
             if (burnProposals[proposer].approvers.length == APPROVER_COUNT) {
-                _doBurn(address(this), amount);
+                needExec = true;
                 delete burnProposals[proposer];  
             }
         } else {
             delete burnProposals[proposer];           
         }
+        emit BurnApproved(msg.sender, proposer, approved, amount); 
 
+        if (needExec)
+            _doBurn(address(this), amount);
         return true;
     }
 
     function _doBurn(address to, uint256 amount) internal virtual;
-
-
-    function _isBurnApprovable(address proposer) internal view returns(bool) {
-        return burnProposals[proposer].amount > 0 
-            && !_isProposalExpired(burnProposals[proposer].startTime);
-    }
-
 }
 
 abstract contract ForceTransferProposal is Governable {
 
     event ForceTransferProposed(address indexed proposer, address indexed from, address indexed to, uint256 amount);
-    event ForceTransferApproved(address indexed approver, address indexed proposer, bool approved, uint256 amount);
-    // event ForceTransferEmitted(address indexed proposer, uint256 amount, address indexed emitter);
+    event ForceTransferApproved(address indexed approver, address indexed proposer, bool approved, 
+        address from, address to, uint256 amount);
 
     struct ForceTransferProposalData {
         address                     from;
@@ -361,7 +355,7 @@ abstract contract ForceTransferProposal is Governable {
         returns(bool) 
     {
         require(_isBalanceEnough(from, amount), "ForceTransferProposal: transfer amount exceeds balance of from");
-        require(!_isForceTransferApprovable(msg.sender), "ForceTransferProposal: proposal is approving" );
+        require( !_isApprovable(forceTransferProposals[msg.sender].startTime), "ForceTransferProposal: proposal is approving" );
 
         delete forceTransferProposals[msg.sender];
         //forceTransfer by a proposer for once only otherwise would be overwritten
@@ -379,13 +373,11 @@ abstract contract ForceTransferProposal is Governable {
     {
 
         ForceTransferProposalData memory proposal = forceTransferProposals[proposer];
-        require( _isForceTransferApprovable(proposer), "ForceTransferProposal: proposal is not approvable" );
+        require( _isApprovable(proposal.startTime), "ForceTransferProposal: proposal is not approvable" );
         require( proposal.from == from && proposal.to == to && proposal.amount == amount, 
             "ForceTransferProposal: amount mismatch" );
         require(_isBalanceEnough(from, amount), "Burnable: transfer amount exceeds balance of from");
         require( !_accountExistIn(msg.sender, proposal.approvers), "ForceTransferProposal: approver has already approved" );
-
-        emit ForceTransferApproved(msg.sender, proposer, approved, amount); 
 
         bool needExec = false;
         if (approved) {
@@ -397,6 +389,7 @@ abstract contract ForceTransferProposal is Governable {
         } else {
             delete forceTransferProposals[proposer];           
         }
+        emit ForceTransferApproved(msg.sender, proposer, approved, from, to, amount); 
 
         if (needExec)
             _doForceTransfer(proposal.from, proposal.to, amount);
@@ -405,14 +398,6 @@ abstract contract ForceTransferProposal is Governable {
     }
 
     function _doForceTransfer(address from, address to, uint256 amount) internal virtual;
-
-
-    function _isForceTransferApprovable(address proposer) internal view returns(bool) {
-        return forceTransferProposals[proposer].from != address(0)
-            && forceTransferProposals[proposer].to != address(0)
-            && forceTransferProposals[proposer].amount > 0 
-            && !_isProposalExpired(forceTransferProposals[proposer].startTime);
-    }
 }
 
 /**
@@ -444,7 +429,7 @@ abstract contract SetApproverProposal is Governable {
         onlyNonZeroAccount(newApprover)
         returns(bool) 
     {
-        require(!_isSetApproverApprovable(msg.sender), "SetApproverProposal: proposal is approving" );
+        require( _isApprovable(setApproverProposals[msg.sender].startTime), "SetApproverProposal: proposal is approving" );
 
         delete setApproverProposals[msg.sender]; // clear proposal data
         //setApprover by a proposer for once only otherwise would be overwritten
@@ -462,13 +447,11 @@ abstract contract SetApproverProposal is Governable {
     {
 
         SetApproverProposalData memory proposal = setApproverProposals[proposer];
-        require( _isSetApproverApprovable(proposer), "SetApproverProposal: proposal is not approvable" );
+        require( _isApprovable(proposal.startTime), "SetApproverProposal: proposal is not approvable" );
         require( proposal.index == index && proposal.newApprover == newApprover, 
             "SetApproverProposal: propose data mismatch" );
         require( !_accountExistIn(msg.sender, proposal.approvers),
             "SetApproverProposal: approver has already approved" );
-
-        emit SetApproverApproved(msg.sender, proposer, index, newApprover); 
 
         bool needExec = false;
         if (approved) {
@@ -480,16 +463,12 @@ abstract contract SetApproverProposal is Governable {
         } else {
             delete setApproverProposals[proposer];           
         }
+        emit SetApproverApproved(msg.sender, proposer, index, newApprover); 
 
         if (needExec)
             _setApprover(index, newApprover);
 
         return true;
-    }
-
-    function _isSetApproverApprovable(address proposer) internal view returns(bool) {
-        return setApproverProposals[proposer].newApprover != address(0)
-            && !_isProposalExpired(setApproverProposals[proposer].startTime);
     }
 }
 
