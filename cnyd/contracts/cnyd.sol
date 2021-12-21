@@ -44,6 +44,11 @@ abstract contract Ownable
         _;
     }
 
+    modifier onlyNonZeroAccount(address account) {
+        require(account != address(this), "Governable: zero account not allowed" );
+        _;
+    }
+
     /**
     * @dev propose a new owner by an existing owner
     * @param newOwner The address proposed to transfer ownership to.
@@ -117,11 +122,6 @@ abstract contract Governable is Ownable {
 
     modifier onlyPositiveAmount(uint256 amount) {
         require(amount > 0, "Governable: zero amount not allowed" );
-        _;
-    }
-
-    modifier onlyNonZeroAccount(address account) {
-        require(account != address(this), "Governable: zero account not allowed" );
         _;
     }
 
@@ -468,7 +468,38 @@ abstract contract SetApproverProposal is Governable {
     }
 }
 
-contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, 
+
+/**
+ * @title Frozenable Token
+ * @dev Illegal address that can be frozened.
+ */
+abstract contract FrozenableToken is Ownable
+{
+
+    mapping (address => bool) public frozenAccount;
+
+    event FrozenFunds(address indexed to, bool frozen);
+
+    modifier whenNotFrozen(address account) {
+      require(!frozenAccount[msg.sender] && !frozenAccount[account], "account frozen");
+      _;
+    }
+
+    function freezeAccount(address to, bool freeze) public 
+        onlyOwner()
+        onlyNonZeroAccount(to) 
+        returns(bool) 
+    {
+        require(to != msg.sender, "self address not allowed");
+
+        frozenAccount[to] = freeze;
+        emit FrozenFunds(to, freeze);
+        return true;
+    }
+
+}
+
+contract Cnyd is ERC20, ERC20Burnable, Pausable, Ownable, FrozenableToken, Governable, 
     Mintable, Burnable, ForceTransferProposal, SetApproverProposal {
 
 
@@ -508,7 +539,11 @@ contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable,
         return balanceOf(account) >= amount;
     }
 
-   function _transfer(address sender, address recipient, uint256 amount) internal whenNotPaused override {
+   function _transfer(address sender, address recipient, uint256 amount) internal override
+        whenNotPaused  
+        whenNotFrozen(sender)
+        whenNotFrozen(recipient)
+    {
         super._transfer(sender, recipient, amount);
     }
 
