@@ -79,8 +79,6 @@ abstract contract Ownable
 
 }
 
-// TODO: add FrozenableToken
-
 abstract contract Governable is Ownable {
 
     // TODO: set PROPOSAL_DURATION
@@ -437,7 +435,11 @@ abstract contract SetApproverProposal is Governable {
         return true;
     }
 
-    function approveSetApprover(address proposer, bool approved, uint256 index, address newApprover) public 
+
+    /**
+     * approver can not unapprove
+     */
+    function approveSetApprover(address proposer, uint256 index, address newApprover) public 
         onlyApproverAndOwner() 
         returns(bool) 
     {
@@ -450,14 +452,10 @@ abstract contract SetApproverProposal is Governable {
             "SetApproverProposal: approver has already approved" );
 
         bool needExec = false;
-        if (approved) {
-            setApproverProposals[proposer].approvers.push(msg.sender);
-            if (setApproverProposals[proposer].approvers.length == APPROVER_COUNT) {
-                needExec = true;
-                delete setApproverProposals[proposer];  
-            }
-        } else {
-            delete setApproverProposals[proposer];           
+        setApproverProposals[proposer].approvers.push(msg.sender);
+        if (setApproverProposals[proposer].approvers.length == APPROVER_COUNT) {
+            needExec = true;
+            delete setApproverProposals[proposer];  
         }
         emit SetApproverApproved(msg.sender, proposer, index, newApprover); 
 
