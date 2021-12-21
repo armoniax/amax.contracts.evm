@@ -173,7 +173,7 @@ abstract contract Mintable is Governable {
     */
     function proposeMint(uint256 amount) public onlyProposer() returns(bool) {
         require(amount > 0, "Mintable: zero amount not allowed" );
-        require(!_isApprovable(msg.sender), "Mintable: proposal is approving" );
+        require(!_isMintApprovable(msg.sender), "Mintable: proposal is approving" );
 
         delete mintProposals[msg.sender];
         //mint by a proposer for once only otherwise would be overwritten
@@ -186,7 +186,7 @@ abstract contract Mintable is Governable {
 
     function approveMint(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
 
-        require( _isApprovable(proposer), "Mintable: proposal is not approvable" );
+        require( _isMintApprovable(proposer), "Mintable: proposal is not approvable" );
         require( mintProposals[proposer].amount == amount, "Mintable: amount mismatch" );
         require( !_accountExistIn(msg.sender, mintProposals[proposer].approvers),
             "Mintable: approver has already approved" );
@@ -209,7 +209,7 @@ abstract contract Mintable is Governable {
     function _doMint(address to, uint256 amount) internal virtual;
 
 
-    function _isApprovable(address proposer) internal view returns(bool) {
+    function _isMintApprovable(address proposer) internal view returns(bool) {
         return mintProposals[proposer].amount > 0 
             && !_isProposalExpired(mintProposals[proposer].startTime);
     }
@@ -217,9 +217,69 @@ abstract contract Mintable is Governable {
 
 
 abstract contract Burnable is Governable {
+
+    event BurnProposed(address indexed proposer, uint256 amount);
+    event BurnApproved(address indexed approver, address indexed proposer, bool approved, uint256 amount);
+    // event BurnEmitted(address indexed proposer, uint256 amount, address indexed emitter);
+
+    struct BurnProposalData {
+        uint256                     amount;
+        uint                        startTime;
+        address[]                   approvers;
+    }
+
+    mapping (address => BurnProposalData) public burnProposals; /** proposer -> BurnProposalData */
+
+    /**
+    * @dev propose to burn
+    * @param amount amount to burn
+    * @return burn propose ID
+    */
+    function proposeBurn(uint256 amount) public onlyProposer() returns(bool) {
+        require(amount > 0, "Burnable: zero amount not allowed" );
+        require(!_isBurnApprovable(msg.sender), "Burnable: proposal is approving" );
+
+        delete burnProposals[msg.sender];
+        //burn by a proposer for once only otherwise would be overwritten
+        burnProposals[msg.sender].amount = amount;
+        burnProposals[msg.sender].startTime = block.timestamp;
+        emit BurnProposed(msg.sender, amount);
+
+        return true;
+    }
+
+    function approveBurn(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
+
+        require( _isBurnApprovable(proposer), "Burnable: proposal is not approvable" );
+        require( burnProposals[proposer].amount == amount, "Burnable: amount mismatch" );
+        require( !_accountExistIn(msg.sender, burnProposals[proposer].approvers),
+            "Burnable: approver has already approved" );
+
+        emit BurnApproved(msg.sender, proposer, approved, amount); 
+
+        if (approved) {
+            burnProposals[proposer].approvers.push(msg.sender);
+            if (burnProposals[proposer].approvers.length == APPROVER_COUNT) {
+                _doBurn(address(this), amount);
+                delete burnProposals[proposer];  
+            }
+        } else {
+            delete burnProposals[proposer];           
+        }
+
+        return true;
+    }
+
+    function _doBurn(address to, uint256 amount) internal virtual;
+
+
+    function _isBurnApprovable(address proposer) internal view returns(bool) {
+        return burnProposals[proposer].amount > 0 
+            && !_isProposalExpired(burnProposals[proposer].startTime);
+    }
 }
 
-contract Cnyd is ERC20, ERC20Burnable, Pausable, Mintable, Burnable{
+contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, Mintable, Burnable{
 
 
     uint8 private constant _decimals = 4;
@@ -244,6 +304,10 @@ contract Cnyd is ERC20, ERC20Burnable, Pausable, Mintable, Burnable{
 
     function _doMint(address to, uint256 amount) internal override {
         _mint(to, amount);
+    }
+
+    function _doBurn(address to, uint256 amount) internal override {
+        _burn(to, amount);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount)
