@@ -198,6 +198,7 @@ abstract contract Mintable is Governable {
 
     event MintProposed(address indexed proposer, uint256 amount);
     event MintApproved(address indexed approver, address indexed proposer, bool approved, uint256 amount);
+    event HolderChanged(address indexed newHolder, address indexed oldHolder);
 
     struct MintProposalData {
         uint256                     amount;
@@ -211,7 +212,10 @@ abstract contract Mintable is Governable {
 
     function setHolder(address newHolder) public onlyOwner() {
         require(newHolder != address(0), "Mintable: zero address not allowed");
+        require(newHolder != holder, "Mintable: holder no changed");
+        address oldHolder = holder;
         holder = newHolder;
+        emit HolderChanged(newHolder, oldHolder);
     }
 
     /**
