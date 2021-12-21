@@ -225,6 +225,7 @@ contract Cnyd is ERC20, ERC20Burnable, Pausable, Mintable, Burnable{
     uint8 private constant _decimals = 4;
 
     constructor(address[3] memory _approvers) ERC20("cnyd", "CNYD") {
+        holder = msg.sender;
         approvers = _approvers;
     }
 
