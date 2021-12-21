@@ -81,14 +81,15 @@ abstract contract Ownable
 
 abstract contract Governable is Ownable {
 
-    // TODO: set PROPOSAL_DURATION
-    uint256 public constant PROPOSAL_DURATION = 24 * 3600; // one day in second
     uint256 public constant APPROVER_COUNT = 3;
 
     enum ApprovedStatus { NONE, STARTED, APPROVED, OPPOSED }
 
     event ApproverChanged(uint256 idndex, address indexed newAccount, address indexed oldAccount);
     event ProposerChanged(address indexed account, bool enabled);
+
+
+    uint256 public proposalDuration = 24 * 3600; // in second
 
     address[APPROVER_COUNT] public approvers;
 
@@ -171,6 +172,10 @@ abstract contract Governable is Ownable {
         emit ProposerChanged(account, enabled);
     }
 
+    function setProposalDuration(uint duration) public onlyOwner() {
+        proposalDuration = duration;
+    }
+
     function _accountExistIn(address account, address[] memory accounts) internal pure returns(bool) {
         for (uint256 i = 0; i < accounts.length; i++) {
             if (account == accounts[i]) return true;
@@ -179,7 +184,7 @@ abstract contract Governable is Ownable {
     }
 
     function _isProposalExpired(uint startTime) internal view returns(bool) {   
-        return block.timestamp > startTime + PROPOSAL_DURATION;    
+        return block.timestamp > startTime + proposalDuration;    
     }
 
     function _isApprovable(uint startTime) internal view returns(bool) {
