@@ -74,13 +74,9 @@ abstract contract Ownable
 
 }
 
+// TODO: add FrozenableToken
 
 abstract contract Governable is Ownable {
-
-    // uint256 public constant RATIO_DECIMALS = 4;  /** ratio decimals */
-    // uint256 public constant RATIO_PRECISION = 10 ** RATIO_DECIMALS /** ratio precision， 10000 */;
-    // uint256 public constant MAX_FEE_RATIO = 1 * RATIO_PRECISION - 1; /** max fee ratio, 100% */
-    // uint256 public constant MIN_APPROVE_RATIO = 6666 ; /** min approve ratio, 66.66% */
 
     // TODO: set PROPOSAL_DURATION
     uint256 public constant PROPOSAL_DURATION = 24 * 3600; // one day in second
