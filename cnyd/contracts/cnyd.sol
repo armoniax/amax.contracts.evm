@@ -97,7 +97,7 @@ abstract contract Governable is Ownable {
     * @dev Throws if called by any account other than the approver.
     */
     modifier onlyApprover() {
-        require(isApprover(msg.sender), "Governable: caller is not an approver");
+        require(_isApprover(msg.sender), "Governable: caller is not an approver");
         _;
     }
 
@@ -109,7 +109,7 @@ abstract contract Governable is Ownable {
         _;
     }
 
-    function isApprover(address account) internal view returns(bool) {
+    function _isApprover(address account) internal view returns(bool) {
         for (uint256 i = 0; i < approvers.length; i++) {
             if (approvers[i] == account)
                 return true;
@@ -117,18 +117,10 @@ abstract contract Governable is Ownable {
         return false;
     }
 
-    function getApproverId(address account) internal view returns(uint256) {
-        for (uint256 i = 0; i < approvers.length; i++) {
-            if (approvers[i] == account)
-                return i;
-        }
-        require(false, "Governable: account is not an approver");
-    }
-
     function _setApprover(uint256 id, address account) internal onlyOwner {
         require(id < APPROVER_COUNT, "Governable: approver id is out of range");
         require(account != approvers[id], "Governable: the account is same as the old one");
-        require(!isApprover(account), "Governable: the account is already an approver");
+        require(!_isApprover(account), "Governable: the account is already an approver");
 
         address oldAccount = approvers[id];
         approvers[id] = account;
@@ -141,6 +133,16 @@ abstract contract Governable is Ownable {
         emit ProposerChanged(account, enabled);
     }
 
+    function _accountExistIn(address account, address[] memory accounts) internal pure returns(bool) {
+        for (uint256 i = 0; i < accounts.length; i++) {
+            if (account == accounts[i]) return true;
+        }
+        return false;
+    }
+
+    function _isProposalExpired(uint startTime) internal view returns(bool) {   
+        return block.timestamp > startTime + PROPOSAL_DURATION;    
+    }
 }
 
 abstract contract Mintable is Governable {
@@ -152,8 +154,7 @@ abstract contract Mintable is Governable {
     struct ProposalMintData {
         uint256                     amount;
         uint                        startTime;
-        address[APPROVER_COUNT]     approvers;
-        uint256                     approvedCount;
+        address[]                   approvers;
     }
 
     mapping (address => ProposalMintData) public proposalMints; /** proposer -> ProposalMintData */
@@ -177,6 +178,7 @@ abstract contract Mintable is Governable {
         delete proposalMints[msg.sender];
         //mint by a proposer for once only otherwise would be overwritten
         proposalMints[msg.sender].amount = amount;
+        proposalMints[msg.sender].startTime = block.timestamp;
         emit MintProposed(msg.sender, amount);
 
         return true;
@@ -186,16 +188,14 @@ abstract contract Mintable is Governable {
 
         require( _isApprovable(proposer), "Mintable: proposal is not approvable" );
         require( proposalMints[proposer].amount == amount, "Mintable: amount mismatch" );
-
-        uint256 id = getApproverId(msg.sender);
-        require( proposalMints[proposer].approvers[id] != address(0),
+        require( !_accountExistIn(msg.sender, proposalMints[proposer].approvers),
             "Mintable: approver has already approved" );
 
         emit MintApproved(msg.sender, proposer, approved, amount); 
+
         if (approved) {
-            proposalMints[proposer].approvers[id] = msg.sender;
-            proposalMints[proposer].approvedCount++;
-            if (proposalMints[proposer].approvedCount == APPROVER_COUNT) {
+            proposalMints[proposer].approvers.push(msg.sender);
+            if (proposalMints[proposer].approvers.length == APPROVER_COUNT) {
                 _doMint(holder, amount);
                 delete proposalMints[proposer];  
             }
@@ -211,8 +211,7 @@ abstract contract Mintable is Governable {
 
     function _isApprovable(address proposer) internal view returns(bool) {
         return proposalMints[proposer].amount > 0 
-            && proposalMints[proposer].approvedCount < APPROVER_COUNT
-            && proposalMints[proposer].startTime + PROPOSAL_DURATION >= block.timestamp;
+            && !_isProposalExpired(proposalMints[proposer].startTime);
     }
 }
 
@@ -225,7 +224,9 @@ contract Cnyd is ERC20, ERC20Burnable, Pausable, Mintable, Burnable{
 
     uint8 private constant _decimals = 4;
 
-    constructor() ERC20("cnyd", "CNYD") {}
+    constructor(address[3] memory _approvers) ERC20("cnyd", "CNYD") {
+        approvers = _approvers;
+    }
 
     function decimals() public view virtual override returns (uint8) {
         return _decimals;
