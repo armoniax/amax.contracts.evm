@@ -81,12 +81,14 @@ abstract contract Governable is Ownable {
     // uint256 public constant RATIO_PRECISION = 10 ** RATIO_DECIMALS /** ratio precision， 10000 */;
     // uint256 public constant MAX_FEE_RATIO = 1 * RATIO_PRECISION - 1; /** max fee ratio, 100% */
     // uint256 public constant MIN_APPROVE_RATIO = 6666 ; /** min approve ratio, 66.66% */
+
+    // TODO: set PROPOSAL_DURATION
     uint256 public constant PROPOSAL_DURATION = 24 * 3600; // one day in second
     uint256 public constant APPROVER_COUNT = 3;
 
     enum ApprovedStatus { NONE, STARTED, APPROVED, OPPOSED }
 
-    event ApproverChanged(uint256 id, address indexed newAccount, address indexed oldAccount);
+    event ApproverChanged(uint256 idndex, address indexed newAccount, address indexed oldAccount);
     event ProposerChanged(address indexed account, bool enabled);
 
     address[APPROVER_COUNT] public approvers;
@@ -107,6 +109,33 @@ abstract contract Governable is Ownable {
     modifier onlyProposer() {
         require(proposers[msg.sender], "Governable: caller is not a proposer");
         _;
+    }
+
+    /**
+    * @dev Throws if called by any account other than the approver and owner.
+    */
+    modifier onlyApproverAndOwner() {
+        require(_isApprover(msg.sender) || msg.sender == owner, "Governable: caller is not an approver or owner");
+        _;
+    }
+
+    function _isApproverDuplicated(address[APPROVER_COUNT] memory _approvers) internal pure returns(bool) {
+        for (uint256 i = 0; i < _approvers.length; i++) {
+            for (uint256 j = i + 1; j < _approvers.length; j++) {
+                if (_approvers[i] == _approvers[j]) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function _setApprovers(address[APPROVER_COUNT] memory _approvers) internal {
+        require(!_isApproverDuplicated(_approvers), "approvers duplicated");
+        approvers = _approvers; 
+        for (uint256 i = 0; i < _approvers.length; i++) {
+            emit ApproverChanged(i, _approvers[i], address(0));
+        }               
     }
 
     function _isApprover(address account) internal view returns(bool) {
@@ -151,7 +180,6 @@ abstract contract Mintable is Governable {
 
     event MintProposed(address indexed proposer, uint256 amount);
     event MintApproved(address indexed approver, address indexed proposer, bool approved, uint256 amount);
-    // event MintEmitted(address indexed proposer, uint256 amount, address indexed emitter);
 
     struct MintProposalData {
         uint256                     amount;
@@ -360,14 +388,88 @@ abstract contract ForceTransferProposal is Governable {
     }
 }
 
-contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, Mintable, Burnable, ForceTransferProposal {
+/**
+ * approved by owner or approvers
+ */
+abstract contract SetApproverProposal is Governable {
+
+    event SetApproverProposed(address indexed proposer, uint256 index, address indexed newApprover);
+    event SetApproverApproved(address indexed approver, address indexed proposer, uint256 index, address indexed newApprover);
+
+    struct SetApproverProposalData {
+        uint256                     index;
+        address                     newApprover;
+        uint                        startTime;
+        address[]                   approvers;
+    }
+
+    mapping (address => SetApproverProposalData) public setApproverProposals; /** proposer -> SetApproverProposalData */
+
+    /**
+    * @dev propose to setApprover
+    * @param index index of approver
+    * @param newApprover new approver
+    * @return setApprover propose ID
+    */
+    function proposeSetApprover(uint256 index, address newApprover) public onlyProposer() returns(bool) {
+        require(index < APPROVER_COUNT, "SetApproverProposal: index invalid" );
+        require(newApprover != address(0), "SetApproverProposal: new approver is zero address");
+        require(!_isSetApproverApprovable(msg.sender), "SetApproverProposal: proposal is approving" );
+
+        delete setApproverProposals[msg.sender];
+        //setApprover by a proposer for once only otherwise would be overwritten
+        setApproverProposals[msg.sender].index = index;
+        setApproverProposals[msg.sender].newApprover = newApprover;
+        setApproverProposals[msg.sender].startTime = block.timestamp;
+        emit SetApproverProposed(msg.sender, index, newApprover);
+
+        return true;
+    }
+
+    function approveSetApprover(address proposer, bool approved, uint256 index, address newApprover) 
+        public onlyApproverAndOwner() returns(bool) {
+
+        SetApproverProposalData memory proposal = setApproverProposals[proposer];
+        require( _isSetApproverApprovable(proposer), "SetApproverProposal: proposal is not approvable" );
+        require( proposal.index == index && proposal.newApprover == newApprover, 
+            "SetApproverProposal: propose data mismatch" );
+        require( !_accountExistIn(msg.sender, proposal.approvers),
+            "SetApproverProposal: approver has already approved" );
+
+        emit SetApproverApproved(msg.sender, proposer, index, newApprover); 
+
+        bool needExec = false;
+        if (approved) {
+            setApproverProposals[proposer].approvers.push(msg.sender);
+            if (setApproverProposals[proposer].approvers.length == APPROVER_COUNT) {
+                needExec = true;
+                delete setApproverProposals[proposer];  
+            }
+        } else {
+            delete setApproverProposals[proposer];           
+        }
+
+        if (needExec)
+            _setApprover(index, newApprover);
+
+        return true;
+    }
+
+    function _isSetApproverApprovable(address proposer) internal view returns(bool) {
+        return setApproverProposals[proposer].newApprover != address(0)
+            && !_isProposalExpired(setApproverProposals[proposer].startTime);
+    }
+}
+
+contract Cnyd is ERC20, ERC20Burnable, Pausable, Governable, 
+    Mintable, Burnable, ForceTransferProposal, SetApproverProposal {
 
 
     uint8 private constant _decimals = 4;
 
-    constructor(address[3] memory _approvers) ERC20("cnyd", "CNYD") {
-        holder = msg.sender;
-        approvers = _approvers;
+    constructor(address[APPROVER_COUNT] memory _approvers) ERC20("cnyd", "CNYD") {
+        setHolder(msg.sender);
+        _setApprovers(_approvers);
     }
 
     function decimals() public view virtual override returns (uint8) {
