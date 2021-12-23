@@ -27,8 +27,10 @@ describe("Cnyd", function () {
     ];
 
     console.log("deploy contract. approvers:", initApprovers);
-    const cnyd = await Cnyd.deploy(initApprovers);
+    const cnyd = await Cnyd.connect(owner).deploy(initApprovers);
     await cnyd.deployed();
+    expect(await cnyd.owner()).equal(owner.address);
+    expect(await cnyd.holder()).equal(owner.address);
     expect(await cnyd.approvers(2)).equal(initApprovers[2]);
 
     // add propose by approver
