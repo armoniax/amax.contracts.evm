@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
+pragma experimental ABIEncoderV2;
+
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -206,9 +208,12 @@ abstract contract Mintable is Governable {
         address[]                   approvers;
     }
 
-    mapping (address => MintProposalData) public mintProposals; /** proposer -> MintProposalData */
-
+    mapping (address => MintProposalData) private mintProposals; /** proposer -> MintProposalData */
     address public holder;
+
+    function getMintProposal(address proposer) public view returns(MintProposalData memory) {
+        return mintProposals[proposer];
+    }
 
     function setHolder(address newHolder) public onlyOwner() {
         require(newHolder != address(0), "Mintable: zero address not allowed");
