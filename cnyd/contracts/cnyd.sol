@@ -4,7 +4,6 @@ pragma solidity ^0.8.2;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
@@ -29,13 +28,6 @@ abstract contract Ownable
     */
     constructor() {
         owner = msg.sender;
-    }
-
-    /**
-    * @dev Returns the bep token owner.
-    */
-    function getOwner() external view returns (address) {
-        return owner;
     }
 
     /**
@@ -81,11 +73,36 @@ abstract contract Ownable
 
 }
 
+abstract contract Administrable is Ownable
+{
+    address public admin;
+
+    event AdminChanged(address indexed previousAdmin, address indexed newAdmin);
+
+    constructor() {
+        admin = msg.sender;
+    }
+
+    /**
+    * @dev Throws if called by any account other than the admin.
+    */
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Administrable: caller is not the admin");
+        _;
+    }
+
+    function setAdmin(address newAdmin) public onlyOwner() onlyNonZeroAccount(newAdmin) {
+        emit OwnershipTransferred(owner, newAdmin);
+        admin = newAdmin;
+    }
+
+}
+
 /**
  * @title Frozenable Token
  * @dev Illegal address that can be frozened.
  */
-abstract contract FrozenableToken is Ownable
+abstract contract FrozenableToken is Administrable
 {
     event AccountFrozen(address indexed to);
     event AccountUnfrozen(address indexed to);
@@ -99,7 +116,7 @@ abstract contract FrozenableToken is Ownable
     }
 
     function freezeAccount(address account) public 
-        onlyOwner()
+        onlyAdmin()
         onlyNonZeroAccount(account) 
         returns(bool) 
     {
@@ -110,7 +127,7 @@ abstract contract FrozenableToken is Ownable
     }
 
     function unfreezeAccount(address account) public 
-        onlyOwner()
+        onlyAdmin()
         onlyNonZeroAccount(account) 
         returns(bool) 
     {
@@ -134,11 +151,11 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken {
         return _decimals;
     }
 
-    function pause() public onlyOwner {
+    function pause() public onlyAdmin {
         _pause();
     }
 
-    function unpause() public onlyOwner {
+    function unpause() public onlyAdmin {
         _unpause();
     }
 
@@ -151,7 +168,7 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken {
      *
      * - `account` cannot be the zero address.
      */
-    function mint(address to, uint256 amount) public onlyOwner {
+    function mint(address to, uint256 amount) public onlyAdmin {
         _mint(to, amount);
     }
 
@@ -167,11 +184,11 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken {
      * - `account` cannot be the zero address.
      * - `account` must have at least `amount` tokens.
      */
-    function burn(uint256 amount) public onlyOwner {
+    function burn(uint256 amount) public onlyAdmin {
         _burn(address(this), amount);
     }
 
-    function forceTransfer(address from, address to, uint256 amount) public onlyOwner() {
+    function forceTransfer(address from, address to, uint256 amount) public onlyAdmin() {
         super._transfer(from, to, amount); // ignore the paused and frozen strategy
         emit ForceTransfer(from, to, amount);
     }
