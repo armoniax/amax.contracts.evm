@@ -30,14 +30,6 @@ interface IAdministrable {
 
     event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
 
-    /**
-    * @dev Throws if called by any account other than the admin.
-    */
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "Administrable: caller is not the admin");
-        _;
-    }
-
     function admin() external view returns(address);
 
     function setAdmin(address newAdmin) external;
@@ -61,8 +53,6 @@ interface IFrozenableToken {
 
 interface IAdminFee {
 
-    uint256 external constant RATIO_PRECISION = 1000;
-
     event AdminFeeRatioChanged(uint256 oldRatio, uint256 newRatio);
     event FeeRecipientChanged(address indexed oldFeeRecipient, address indexed newFeeRecipient);
     event FeeWhiteListAdded(address[] accounts);
@@ -70,6 +60,8 @@ interface IAdminFee {
 
 
     function adminFeeRatio() external view returns(uint256);
+
+    function ratioPrecision() external view returns(uint256);
 
     function setAdminFeeRatio(uint256 ratio) external;
 

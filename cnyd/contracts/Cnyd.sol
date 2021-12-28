@@ -85,27 +85,32 @@ abstract contract Ownable is IOwnable
 
 }
 
-abstract contract Administrable is Ownable
-{
-    address public admin;
+abstract contract Administrable is Ownable, IAdministrable {
 
-    event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
+    address private _admin;
 
     constructor() {
-        admin = msg.sender;
+        _admin = msg.sender;
     }
 
     /**
     * @dev Throws if called by any account other than the admin.
     */
     modifier onlyAdmin() {
-        require(msg.sender == admin, "Administrable: caller is not the admin");
+        require(msg.sender == _admin, "Administrable: caller is not the admin");
         _;
     }
 
-    function setAdmin(address newAdmin) public onlyOwner() onlyNonZeroAccount(newAdmin) {
-        emit OwnershipTransferred(admin, newAdmin);
-        admin = newAdmin;
+    function admin() external view virtual override returns(address) {
+        return _admin;
+    }
+
+    function setAdmin(address newAdmin) public virtual override 
+        onlyOwner() 
+        onlyNonZeroAccount(newAdmin) 
+    {
+        emit AdminChanged(_admin, newAdmin);
+        _admin = newAdmin;
     }
 
 }
