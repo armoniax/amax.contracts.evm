@@ -208,9 +208,11 @@ abstract contract AdminFee is Administrable, IAdminFee {
         emit FeeWhiteListDeleted(accounts);
     }
 
-    function _getAccountFeeRatio(address account) internal view returns(uint256) {
-        uint256 feeRatio = _feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[account] ? _adminFeeRatio : 0;
-        return feeRatio * _RATIO_PRECISION;
+    function _calcAdminFee(address account, uint256 amount) internal view returns(uint256) {
+        if (_feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[account]) {
+            return amount * _adminFeeRatio / _RATIO_PRECISION;
+        }
+        return 0;
     }
     
 }
@@ -274,15 +276,13 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnydToken
         whenNotFrozen(recipient)
     {
         require(amount > 0, "Cnyd: non-positive amount not allowed");
-        uint256 fee = amount * _getAccountFeeRatio(sender) / _RATIO_PRECISION;
-        if (fee > 0) {
-            require(balanceOf(sender) >= amount + fee, "Cnyd: insufficient balance for admin fee");
-        }
-
+        
         super._transfer(sender, recipient, amount);
 
+        uint256 fee = _calcAdminFee(sender, amount);
         if (fee > 0) {
             // transfer admin fee to feeRecipient
+            require(balanceOf(sender) >= amount + fee, "Cnyd: insufficient balance for admin fee");
             super._transfer(sender, feeRecipient(), fee);
         }
     }
