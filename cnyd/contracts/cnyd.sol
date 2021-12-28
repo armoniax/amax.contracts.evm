@@ -147,7 +147,59 @@ abstract contract FrozenableToken is Administrable
     }
 }
 
-contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken {
+abstract contract AdminFee is Administrable {
+    
+    struct FeeRatioData {
+        uint256 ratio;
+        bool    enabled;
+    }
+
+    uint256 public constant RATIO_PRECISION = 1000;
+
+    uint256 private _adminFeeRatio;
+    address private _feeRecipient;
+    mapping(address => bool) private _adminFeeWhiteList;
+
+    function adminFeeRatio() public view returns(uint256) {
+        return _adminFeeRatio;
+    }
+    function setFeeRatio(uint256 ratio) public onlyAdmin {
+        _adminFeeRatio = ratio;
+    }
+
+    function feeRecipient() public view returns(address) {
+        return _feeRecipient;
+    }
+
+    function setFeeRecipient(address recipient) public onlyAdmin {
+        _feeRecipient = recipient;
+    }
+
+    function adminFeeWhiteList(address account) public view returns(bool) {
+        return _adminFeeWhiteList[account];
+    }
+
+    function addAdminFeeWhiteList(address[] memory accounts) public onlyAdmin {
+        require(accounts.length > 0, "empty accounts not allowed");
+        for (uint i = 0; i < accounts.length; i++) {
+            _adminFeeWhiteList[accounts[i]] = true;
+        }
+    }
+
+    function delAdminFeeWhiteList(address[] memory accounts) public onlyAdmin {
+        require(accounts.length > 0, "empty accounts not allowed");
+        for (uint i = 0; i < accounts.length; i++) {
+            delete _adminFeeWhiteList[accounts[i]];
+        }
+    }
+
+    function _getAccountFeeRatio(address account) internal view returns(uint256) {
+        return _feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[account] ? _adminFeeRatio : 0;
+    }
+    
+}
+
+contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee {
 
     event ForceTransfer(address indexed from, address indexed to, uint256 amount);
 
@@ -207,7 +259,18 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken {
         whenNotFrozen(sender)
         whenNotFrozen(recipient)
     {
+        require(amount > 0, "Cnyd: non-positive amount not allowed");
+        uint256 fee = amount * _getAccountFeeRatio(sender) / RATIO_PRECISION;
+        if (fee > 0) {
+            require(balanceOf(sender) >= amount + fee, "Cnyd: insufficient balance for admin fee");
+        }
+
         super._transfer(sender, recipient, amount);
+
+        if (fee > 0) {
+            // transfer admin fee to feeRecipient
+            super._transfer(sender, feeRecipient(), fee);
+        }
     }
 
 }
