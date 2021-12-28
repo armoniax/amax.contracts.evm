@@ -44,7 +44,7 @@ interface IFrozenableToken {
     event AccountFrozen(address indexed to);
     event AccountUnfrozen(address indexed to);
 
-    function isAccountFrozen() external view returns(bool);
+    function isAccountFrozen(address account) external view returns(bool);
 
     function freezeAccount(address account) external;
 

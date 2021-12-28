@@ -119,39 +119,37 @@ abstract contract Administrable is Ownable, IAdministrable {
  * @title Frozenable Token
  * @dev Illegal address that can be frozened.
  */
-abstract contract FrozenableToken is Administrable
+abstract contract FrozenableToken is Administrable, IFrozenableToken
 {
-    event AccountFrozen(address indexed to);
-    event AccountUnfrozen(address indexed to);
 
-    mapping (address => bool) public frozenAccounts;
+    mapping (address => bool) public _frozenAccounts;
 
 
     modifier whenNotFrozen(address account) {
-      require(!frozenAccounts[msg.sender] && !frozenAccounts[account], "account frozen");
+      require(!_frozenAccounts[msg.sender] && !_frozenAccounts[account], "account frozen");
       _;
     }
 
-    function freezeAccount(address account) public 
-        onlyAdmin()
-        onlyNonZeroAccount(account) 
-        returns(bool) 
-    {
-        require(!frozenAccounts[account], "FrozenableToken: account has been frozen");
-        frozenAccounts[account] = true;
-        emit AccountFrozen(account);
-        return true;
+    function isAccountFrozen(address account) external view virtual override returns(bool) {
+        return _frozenAccounts[account];
     }
 
-    function unfreezeAccount(address account) public 
+    function freezeAccount(address account) public virtual override
         onlyAdmin()
         onlyNonZeroAccount(account) 
-        returns(bool) 
     {
-        require(frozenAccounts[account], "FrozenableToken: account not been frozen");
-        frozenAccounts[account] = false;
+        require(!_frozenAccounts[account], "FrozenableToken: account has been frozen");
+        _frozenAccounts[account] = true;
+        emit AccountFrozen(account);
+    }
+
+    function unfreezeAccount(address account) public virtual override
+        onlyAdmin()
+        onlyNonZeroAccount(account) 
+    {
+        require(_frozenAccounts[account], "FrozenableToken: account not been frozen");
+        _frozenAccounts[account] = false;
         emit AccountUnfrozen(account);
-        return true;
     }
 }
 
