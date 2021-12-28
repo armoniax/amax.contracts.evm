@@ -215,9 +215,7 @@ abstract contract AdminFee is Administrable, IAdminFee {
     
 }
 
-contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee {
-
-    event ForceTransfer(address indexed from, address indexed to, uint256 amount);
+contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnydToken {
 
     uint8 private constant _decimals = 6;
 
@@ -228,11 +226,11 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee {
         return _decimals;
     }
 
-    function pause() public onlyAdmin {
+    function pause() public virtual override onlyAdmin {
         _pause();
     }
 
-    function unpause() public onlyAdmin {
+    function unpause() public virtual override onlyAdmin {
         _unpause();
     }
 
@@ -245,7 +243,7 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee {
      *
      * - `account` cannot be the zero address.
      */
-    function mint(address to, uint256 amount) public onlyAdmin {
+    function mint(address to, uint256 amount) public virtual override onlyAdmin {
         _mint(to, amount);
     }
 
@@ -261,11 +259,11 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee {
      * - `account` cannot be the zero address.
      * - `account` must have at least `amount` tokens.
      */
-    function burn(uint256 amount) public onlyAdmin {
+    function burn(uint256 amount) public virtual override onlyAdmin {
         _burn(address(this), amount);
     }
 
-    function forceTransfer(address from, address to, uint256 amount) public onlyAdmin() {
+    function forceTransfer(address from, address to, uint256 amount) public virtual override onlyAdmin() {
         super._transfer(from, to, amount); // ignore the paused and frozen strategy
         emit ForceTransfer(from, to, amount);
     }
