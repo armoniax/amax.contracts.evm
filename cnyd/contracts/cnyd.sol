@@ -38,6 +38,15 @@ abstract contract Ownable
         _;
     }
 
+    /**
+    * @dev Throws if called by any account other than the proposed owner.
+    */
+    modifier onlyProposedOwner() {
+        require(proposedOwner != address(0) && msg.sender == proposedOwner, 
+            "Ownable: caller is not the proposed owner");
+        _;
+    }
+
     modifier onlyNonZeroAccount(address account) {
         require(account != address(this), "Governable: zero account not allowed" );
         _;
@@ -56,9 +65,9 @@ abstract contract Ownable
     /**
     * @dev Allows the current owner to transfer control of the contract to a newOwner.
     */
-    function takeOwnership() public {
-        require(proposedOwner == msg.sender, "Ownable: not the proposed owner");
+    function takeOwnership() public onlyProposedOwner {
         _transferOwnership(proposedOwner);
+        proposedOwner = address(0);
     }
 
     /**
