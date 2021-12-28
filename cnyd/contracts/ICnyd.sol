@@ -59,9 +59,9 @@ interface IAdminFee {
     event FeeWhiteListDeleted(address[] accounts);
 
 
-    function adminFeeRatio() external view returns(uint256);
-
     function ratioPrecision() external view returns(uint256);
+
+    function adminFeeRatio() external view returns(uint256);
 
     function setAdminFeeRatio(uint256 ratio) external;
 

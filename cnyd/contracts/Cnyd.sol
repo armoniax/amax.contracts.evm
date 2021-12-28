@@ -153,64 +153,64 @@ abstract contract FrozenableToken is Administrable, IFrozenableToken
     }
 }
 
-abstract contract AdminFee is Administrable {
+abstract contract AdminFee is Administrable, IAdminFee {
     
     struct FeeRatioData {
         uint256 ratio;
         bool    enabled;
     }
 
-    uint256 public constant RATIO_PRECISION = 1000;
+    uint256 internal constant _RATIO_PRECISION = 1000;
 
     uint256 private _adminFeeRatio;
     address private _feeRecipient;
     mapping(address => bool) private _adminFeeWhiteList;
 
-    event AdminFeeRatioChanged(uint256 oldRatio, uint256 newRatio);
-    event FeeRecipientChanged(address indexed oldFeeRecipient, address indexed newFeeRecipient);
-    event AdminFeeWhiteListAdded(address[] accounts);
-    event AdminFeeWhiteListDeleted(address[] accounts);
+    function ratioPrecision() external view virtual override returns(uint256) {
+        return _RATIO_PRECISION;
+    }
 
-
-    function adminFeeRatio() public view returns(uint256) {
+    function adminFeeRatio() public view virtual override returns(uint256) {
         return _adminFeeRatio;
     }
-    function setAdminFeeRatio(uint256 ratio) public onlyAdmin {
+
+    function setAdminFeeRatio(uint256 ratio) public virtual override onlyAdmin {
         emit AdminFeeRatioChanged(_adminFeeRatio, ratio);
         _adminFeeRatio = ratio;
     }
 
-    function feeRecipient() public view returns(address) {
+    function feeRecipient() public view virtual override returns(address) {
         return _feeRecipient;
     }
 
-    function setFeeRecipient(address recipient) public onlyAdmin {
+    function setFeeRecipient(address recipient) public virtual override onlyAdmin {
         emit FeeRecipientChanged(_feeRecipient, recipient);
         _feeRecipient = recipient;
     }
 
-    function adminFeeWhiteList(address account) public view returns(bool) {
+    function isInFeeWhiteList(address account) public view virtual override returns(bool) {
         return _adminFeeWhiteList[account];
     }
 
-    function addAdminFeeWhiteList(address[] memory accounts) public onlyAdmin {
+    function addFeeWhiteList(address[] memory accounts) public virtual override onlyAdmin {
         require(accounts.length > 0, "empty accounts not allowed");
         for (uint i = 0; i < accounts.length; i++) {
             _adminFeeWhiteList[accounts[i]] = true;
         }
-        emit AdminFeeWhiteListAdded(accounts);
+        emit FeeWhiteListAdded(accounts);
     }
 
-    function delAdminFeeWhiteList(address[] memory accounts) public onlyAdmin {
+    function delFeeWhiteList(address[] memory accounts) public virtual override onlyAdmin {
         require(accounts.length > 0, "empty accounts not allowed");
         for (uint i = 0; i < accounts.length; i++) {
             delete _adminFeeWhiteList[accounts[i]];
         }
-        emit AdminFeeWhiteListDeleted(accounts);
+        emit FeeWhiteListDeleted(accounts);
     }
 
     function _getAccountFeeRatio(address account) internal view returns(uint256) {
-        return _feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[account] ? _adminFeeRatio : 0;
+        uint256 feeRatio = _feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[account] ? _adminFeeRatio : 0;
+        return feeRatio * _RATIO_PRECISION;
     }
     
 }
@@ -276,7 +276,7 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee {
         whenNotFrozen(recipient)
     {
         require(amount > 0, "Cnyd: non-positive amount not allowed");
-        uint256 fee = amount * _getAccountFeeRatio(sender) / RATIO_PRECISION;
+        uint256 fee = amount * _getAccountFeeRatio(sender) / _RATIO_PRECISION;
         if (fee > 0) {
             require(balanceOf(sender) >= amount + fee, "Cnyd: insufficient balance for admin fee");
         }
