@@ -5,33 +5,39 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "./ICnyd.sol";
 
 /**
  * @title Ownable
  * @dev The Ownable contract has an owner address, and provides basic authorization control
  * functions, this simplifies the implementation of "user permissions".
  */
-abstract contract Ownable
+abstract contract Ownable is IOwnable
 {
-    address public owner;
-    address private proposedOwner;
-
-    event OwnershipProposed(address indexed newOwner);
-    event OwnershipTransferred(address indexed oldOwner, address indexed newOwner);
+    address private _owner;
+    address private _proposedOwner;
 
     /**
     * @dev The Ownable constructor sets the original `owner` of the contract to the sender
     * account.
     */
     constructor() {
-        owner = msg.sender;
+        _owner = msg.sender;
+    }
+
+    function owner() external view virtual override returns(address) {
+        return _owner;
+    }
+
+    function proposedOwner() external view virtual override returns(address) {
+        return _proposedOwner;
     }
 
     /**
     * @dev Throws if called by any account other than the owner.
     */
     modifier onlyOwner() {
-        require(msg.sender == owner, "Ownable: caller is not the owner");
+        require(msg.sender == _owner, "Ownable: caller is not the owner");
         _;
     }
 
@@ -39,7 +45,7 @@ abstract contract Ownable
     * @dev Throws if called by any account other than the proposed owner.
     */
     modifier onlyProposedOwner() {
-        require(proposedOwner != address(0) && msg.sender == proposedOwner, 
+        require(_proposedOwner != address(0) && msg.sender == _proposedOwner, 
             "Ownable: caller is not the proposed owner");
         _;
     }
@@ -53,18 +59,18 @@ abstract contract Ownable
     * @dev propose a new owner by an existing owner
     * @param newOwner The address proposed to transfer ownership to.
     */
-    function proposeOwner(address newOwner) public onlyOwner {
+    function proposeOwner(address newOwner) public virtual override onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
-        proposedOwner = newOwner;
+        _proposedOwner = newOwner;
         emit OwnershipProposed(newOwner);
     }
 
     /**
     * @dev Allows the current owner to transfer control of the contract to a newOwner.
     */
-    function takeOwnership() public onlyProposedOwner {
-        _transferOwnership(proposedOwner);
-        proposedOwner = address(0);
+    function takeOwnership() public virtual override onlyProposedOwner {
+        _transferOwnership(_proposedOwner);
+        _proposedOwner = address(0);
     }
 
     /**
@@ -73,8 +79,8 @@ abstract contract Ownable
     */
     function _transferOwnership(address newOwner) internal {
         require(newOwner != address(0), "Ownable: zero address not allowed");
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
     }
 
 }
@@ -98,7 +104,7 @@ abstract contract Administrable is Ownable
     }
 
     function setAdmin(address newAdmin) public onlyOwner() onlyNonZeroAccount(newAdmin) {
-        emit OwnershipTransferred(owner, newAdmin);
+        emit OwnershipTransferred(admin, newAdmin);
         admin = newAdmin;
     }
 
