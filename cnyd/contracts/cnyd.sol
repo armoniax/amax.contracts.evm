@@ -17,10 +17,7 @@ abstract contract Ownable
     address private proposedOwner;
 
     event OwnershipProposed(address indexed newOwner);
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
+    event OwnershipTransferred(address indexed oldOwner, address indexed newOwner);
 
     /**
     * @dev The Ownable constructor sets the original `owner` of the contract to the sender
@@ -86,7 +83,7 @@ abstract contract Administrable is Ownable
 {
     address public admin;
 
-    event AdminChanged(address indexed previousAdmin, address indexed newAdmin);
+    event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
 
     constructor() {
         admin = msg.sender;
@@ -160,10 +157,17 @@ abstract contract AdminFee is Administrable {
     address private _feeRecipient;
     mapping(address => bool) private _adminFeeWhiteList;
 
+    event AdminFeeRatioChanged(uint256 oldRatio, uint256 newRatio);
+    event FeeRecipientChanged(address indexed oldFeeRecipient, address indexed newFeeRecipient);
+    event AdminFeeWhiteListAdded(address[] accounts);
+    event AdminFeeWhiteListDeleted(address[] accounts);
+
+
     function adminFeeRatio() public view returns(uint256) {
         return _adminFeeRatio;
     }
-    function setFeeRatio(uint256 ratio) public onlyAdmin {
+    function setAdminFeeRatio(uint256 ratio) public onlyAdmin {
+        emit AdminFeeRatioChanged(_adminFeeRatio, ratio);
         _adminFeeRatio = ratio;
     }
 
@@ -172,6 +176,7 @@ abstract contract AdminFee is Administrable {
     }
 
     function setFeeRecipient(address recipient) public onlyAdmin {
+        emit FeeRecipientChanged(_feeRecipient, recipient);
         _feeRecipient = recipient;
     }
 
@@ -184,6 +189,7 @@ abstract contract AdminFee is Administrable {
         for (uint i = 0; i < accounts.length; i++) {
             _adminFeeWhiteList[accounts[i]] = true;
         }
+        emit AdminFeeWhiteListAdded(accounts);
     }
 
     function delAdminFeeWhiteList(address[] memory accounts) public onlyAdmin {
@@ -191,6 +197,7 @@ abstract contract AdminFee is Administrable {
         for (uint i = 0; i < accounts.length; i++) {
             delete _adminFeeWhiteList[accounts[i]];
         }
+        emit AdminFeeWhiteListDeleted(accounts);
     }
 
     function _getAccountFeeRatio(address account) internal view returns(uint256) {
