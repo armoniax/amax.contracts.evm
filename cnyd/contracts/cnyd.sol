@@ -151,9 +151,9 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken {
 
     event ForceTransfer(address indexed from, address indexed to, uint256 amount);
 
-    uint8 private constant _decimals = 4;
+    uint8 private constant _decimals = 6;
 
-    constructor() ERC20("cnyd", "CNYD") {
+    constructor() ERC20("CNY Digital", "CNYD") {
     }
 
     function decimals() public view virtual override returns (uint8) {
