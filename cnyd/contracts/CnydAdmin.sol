@@ -336,35 +336,46 @@ abstract contract SetApproverProposal is Governable {
 
 contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, SetApproverProposal {
 
-    address cnyd;
+    address token;
 
-    constructor(address _cnyd, address[APPROVER_COUNT] memory _approvers) onlyNonZeroAccount(_cnyd) {
-        cnyd = _cnyd;
+    constructor(address _token, address[APPROVER_COUNT] memory _approvers) onlyNonZeroAccount(_token) {
+        token = _token;
         _setApprovers(_approvers);
     }
 
     function pause() public onlyOwner {
-        ICnydToken(cnyd).pause();
+        ICnydToken(token).pause();
     }
 
     function unpause() public onlyOwner {
-        ICnydToken(cnyd).unpause();
+        ICnydToken(token).unpause();
     }
 
-    function forceTransfer(address from, address to, uint256 amount) public {
-        ICnydToken(cnyd).forceTransfer(from, to, amount);
+    function forceTransfer(address from, address to, uint256 amount) public onlyOwner {
+        ICnydToken(token).forceTransfer(from, to, amount);
     }
 
     function _doMint(address to, uint256 amount) internal override {
-        ICnydToken(cnyd).mint(to, amount);
+        ICnydToken(token).mint(to, amount);
     }
 
     function _doBurn(uint256 amount) internal override {
-        ICnydToken(cnyd).burn(amount);
+        ICnydToken(token).burn(amount);
     }
 
     function _isBalanceEnough(address account, uint256 amount) internal view override returns(bool) {
-        return IERC20(cnyd).balanceOf(account) >= amount;
+        return IERC20(token).balanceOf(account) >= amount;
     }
 
+    function proposeTokenOwner(address newOwner) public onlyOwner {
+        IOwnable(token).proposeOwner(newOwner);
+    }
+
+    function takeTokenOwnership() public onlyOwner {
+        IOwnable(token).takeOwnership();
+    }
+
+    function setTokenAdmin(address newAdmin) public onlyOwner { 
+        IAdministrable(token).setAdmin(newAdmin);
+    }
 }
