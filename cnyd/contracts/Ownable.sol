@@ -3,7 +3,7 @@ pragma solidity ^0.8.2;
 
 pragma experimental ABIEncoderV2;
 
-import "./ICnyd.sol";
+import "./ICnydToken.sol";
 
 /**
  * @title Ownable

@@ -4,7 +4,7 @@ pragma solidity ^0.8.2;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./ICnyd.sol";
+import "./ICnydToken.sol";
 import "./Ownable.sol";
 
 abstract contract Governable is Ownable {

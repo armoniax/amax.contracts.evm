@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "./ICnyd.sol";
+import "./ICnydToken.sol";
 import "./Ownable.sol";
 
 abstract contract Administrable is Ownable, IAdministrable {
@@ -140,7 +140,7 @@ abstract contract AdminFee is Administrable, IAdminFee {
     
 }
 
-contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnydToken {
+contract CnydToken is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnydToken {
 
     uint8 private constant _decimals = 6;
 
@@ -198,14 +198,14 @@ contract Cnyd is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnydToken
         whenNotFrozen(sender)
         whenNotFrozen(recipient)
     {
-        require(amount > 0, "Cnyd: non-positive amount not allowed");
+        require(amount > 0, "CnydToken: non-positive amount not allowed");
         
         super._transfer(sender, recipient, amount);
 
         uint256 fee = _calcAdminFee(sender, amount);
         if (fee > 0) {
             // transfer admin fee to feeRecipient
-            require(balanceOf(sender) >= amount + fee, "Cnyd: insufficient balance for admin fee");
+            require(balanceOf(sender) >= amount + fee, "CnydToken: insufficient balance for admin fee");
             super._transfer(sender, feeRecipient(), fee);
         }
     }
