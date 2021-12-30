@@ -120,7 +120,7 @@ abstract contract Governable is Ownable {
         return startTime > 0 && !_isProposalExpired(startTime);
     }
 
-    function _isBalanceEnough(address account, uint256 amount) internal view virtual returns(bool);
+    function _isBurnedBalanceEnough(uint256 amount) internal view virtual returns(bool);
 }
 
 abstract contract MintProposal is Governable {
@@ -215,7 +215,7 @@ abstract contract BurnProposal is Governable {
         onlyPositiveAmount(amount) 
         returns(bool) 
     {
-        require(_isBalanceEnough(address(this), amount), "BurnProposal: burn amount exceeds contract balance");
+        require(_isBurnedBalanceEnough(amount), "BurnProposal: burn amount exceeds contract balance");
         require( !_isApprovable(burnProposals[msg.sender].startTime), "BurnProposal: proposal is approving" );
 
         delete burnProposals[msg.sender]; // clear proposal data
@@ -231,7 +231,7 @@ abstract contract BurnProposal is Governable {
         BurnProposalData memory proposal = burnProposals[proposer];
         require( _isApprovable(proposal.startTime), "BurnProposal: proposal is not approvable" );
         require( proposal.amount == amount, "BurnProposal: proposal data mismatch" );
-        require(_isBalanceEnough(address(this), amount), "BurnProposal: burn amount exceeds contract balance");
+        require(_isBurnedBalanceEnough(amount), "BurnProposal: burn amount exceeds contract balance");
         require( !_accountExistIn(msg.sender, proposal.approvers),
             "BurnProposal: approver has already approved" );
 
@@ -357,8 +357,8 @@ contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, SetApprov
         ICnydToken(token).burn(amount);
     }
 
-    function _isBalanceEnough(address account, uint256 amount) internal view override returns(bool) {
-        return IERC20(token).balanceOf(account) >= amount;
+    function _isBurnedBalanceEnough(uint256 amount) internal view override returns(bool) {
+        return IERC20(token).balanceOf(token) >= amount;
     }
 
     function proposeTokenOwner(address newOwner) public onlyOwner {
@@ -371,10 +371,5 @@ contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, SetApprov
 
     function setTokenAdmin(address newAdmin) public onlyOwner { 
         IAdministrable(token).setAdmin(newAdmin);
-    }
-
-
-    function test() public pure returns(string memory) { 
-        return "hellow";
     }
 }
