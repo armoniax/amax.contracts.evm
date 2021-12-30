@@ -18,7 +18,7 @@ abstract contract Governable is Ownable {
     event ProposerChanged(address indexed account, bool enabled);
 
 
-    uint256 public proposalDuration = 24 * 3600; // in second
+    uint256 public proposalDuration = 6 * 3600; // in second
 
     address[APPROVER_COUNT] public approvers;
 
@@ -125,29 +125,21 @@ abstract contract Governable is Ownable {
 
 abstract contract MintProposal is Governable {
 
-    event MintProposed(address indexed proposer, uint256 amount);
-    event MintApproved(address indexed approver, address indexed proposer, bool approved, uint256 amount);
+    event MintProposed(address indexed proposer, address indexed to, uint256 amount);
+    event MintApproved(address indexed approver, address indexed proposer, bool approved, address indexed to, uint256 amount);
     event HolderChanged(address indexed newHolder, address indexed oldHolder);
 
     struct MintProposalData {
+        address                     to;
         uint256                     amount;
         uint                        startTime;
         address[]                   approvers;
     }
 
     mapping (address => MintProposalData) private mintProposals; /** proposer -> MintProposalData */
-    address public holder;
 
     function getMintProposal(address proposer) public view returns(MintProposalData memory) {
         return mintProposals[proposer];
-    }
-
-    function setHolder(address newHolder) public onlyOwner() {
-        require(newHolder != address(0), "MintProposal: zero address not allowed");
-        require(newHolder != holder, "MintProposal: holder no changed");
-        address oldHolder = holder;
-        holder = newHolder;
-        emit HolderChanged(newHolder, oldHolder);
     }
 
     /**
@@ -155,8 +147,9 @@ abstract contract MintProposal is Governable {
     * @param amount amount to mint
     * @return mint propose ID
     */
-    function proposeMint(uint256 amount) public 
+    function proposeMint(address to, uint256 amount) public 
         onlyProposer() 
+        onlyNonZeroAccount(to)
         onlyPositiveAmount(amount) 
         returns(bool) 
     {
@@ -164,17 +157,18 @@ abstract contract MintProposal is Governable {
 
         delete mintProposals[msg.sender];
         //mint by a proposer for once only otherwise would be overwritten
+        mintProposals[msg.sender].to = to;
         mintProposals[msg.sender].amount = amount;
         mintProposals[msg.sender].startTime = block.timestamp;
-        emit MintProposed(msg.sender, amount);
+        emit MintProposed(msg.sender, to, amount);
 
         return true;
     }
 
-    function approveMint(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
+    function approveMint(address proposer, bool approved, address to, uint256 amount) public onlyApprover() returns(bool) {
         MintProposalData memory proposal = mintProposals[proposer];
         require( _isApprovable(proposal.startTime), "MintProposal: proposal is not approvable" );
-        require( proposal.amount == amount, "MintProposal: proposal data mismatch" );
+        require( proposal.to == to && proposal.amount == amount, "MintProposal: proposal data mismatch" );
         require( !_accountExistIn(msg.sender, proposal.approvers), "MintProposal: approver has already approved" );
 
         bool needExec = false;
@@ -187,10 +181,10 @@ abstract contract MintProposal is Governable {
         } else {
             delete mintProposals[proposer];           
         }
-        emit MintApproved(msg.sender, proposer, approved, amount); 
+        emit MintApproved(msg.sender, proposer, approved, to, amount); 
 
         if (needExec) 
-            _doMint(holder, amount);
+            _doMint(to, amount);
 
         return true;
     }
@@ -377,5 +371,10 @@ contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, SetApprov
 
     function setTokenAdmin(address newAdmin) public onlyOwner { 
         IAdministrable(token).setAdmin(newAdmin);
+    }
+
+
+    function test() public pure returns(string memory) { 
+        return "hellow";
     }
 }

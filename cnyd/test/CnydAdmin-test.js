@@ -15,32 +15,37 @@ describe("CnydAdmin", function () {
   let approvers;
   let proposers;
   let initApprovers;
+  let users;
+
+  let CnydToken;
+  let cnydToken;
+  let CnydAdmin;
+  let cnydAdmin;
 
   beforeEach(async () => {
     // init global variants
-    accounts = await hre.ethers.getSigners();
-    expect(accounts).length.greaterThan(10);
-
+    accounts = await ethers.getSigners();
+    expect(accounts).length.greaterThan(11);
+    // console.log("accounts:", accounts.length);
     owner = accounts[0];
     approvers = accounts.slice(1, 4);
     proposers = accounts.slice(5, 8);
+    users = accounts.slice(9, 10);
+
     initApprovers = [
       approvers[0].address,
       approvers[1].address,
       approvers[2].address,
     ];
-  });
 
-  it("test CnydAdmin", async function () {
-    const CnydToken = await ethers.getContractFactory("CnydToken");
+    CnydToken = await ethers.getContractFactory("CnydToken");
+    CnydAdmin = await ethers.getContractFactory("CnydAdmin");
 
-    const cnydToken = await CnydToken.connect(owner).deploy();
+    cnydToken = await CnydToken.connect(owner).deploy();
     await cnydToken.deployed();
     // console.log("cnydToken:", cnydToken);
 
-    const CnydAdmin = await ethers.getContractFactory("CnydAdmin");
-
-    const cnydAdmin = await CnydAdmin.connect(owner).deploy(cnydToken.address, initApprovers);
+    cnydAdmin = await CnydAdmin.connect(owner).deploy(cnydToken.address, initApprovers);
     await cnydAdmin.deployed();
 
     await cnydToken.proposeOwner(cnydAdmin.address);
@@ -51,37 +56,31 @@ describe("CnydAdmin", function () {
 
     await cnydAdmin.setTokenAdmin(cnydAdmin.address);
     expect(await cnydToken.admin()).equal(cnydAdmin.address);
+  });
 
-    // await cnydToken.setOwner(cnydAdmin.address);   
-    // expect(await cnydToken.owner()).equal(owner.address);
-    // expect(await cnydToken.holder()).equal(owner.address);
-    // expect(await cnydToken.approvers(2)).equal(initApprovers[2]);
+  it("test proposeMint", async function () {
 
-    // console.log("deploy contract. approvers:", initApprovers);
+    await cnydAdmin.connect(owner).setProposer(proposers[0].address, true);
+    expect(await cnydAdmin.proposers(proposers[0].address)).equal(true);
 
-    // // add propose by approver
-    // console.log(
-    //   "set proposer", proposers[0].address,
-    //   "by approver", approvers[0].address
-    // );
-    // await cnyd.connect(approvers[0]).setProposer(proposers[0].address, true);
-    // expect(await cnyd.proposers(proposers[0].address)).equal(true);
+    const proposeMintReceipt = await (await cnydAdmin.connect(proposers[0]).proposeMint(users[0].address, 10000_000000)).wait(1);
+    expect(proposeMintReceipt.events.length).to.equal(1);
+    expect(proposeMintReceipt.events[0].event).to.equal('MintProposed');
 
-    // console.log("propose mint. amount:", 10000_0000);
-    // await cnyd.connect(proposers[0]).proposeMint(10000_0000);
-    // const [mintAmount] = await cnyd.getMintProposal(proposers[0].address);
-    // expect(mintAmount).equal(100000000);
+    const blockTime = B((await ethers.provider.getBlock(proposeMintReceipt.blockNumber)).timestamp);
 
-    // console.log("approve mint. amount:", 10000_0000);
-    // await cnyd.connect(approvers[0]).approveMint(proposers[0].address, true, 10000_0000);
-    // await cnyd.connect(approvers[1]).approveMint(proposers[0].address, true, 10000_0000);
-    // const [,, retApprovers1] = await cnyd.getMintProposal(proposers[0].address);
-    // expect(retApprovers1).to.deep.equal([approvers[0].address, approvers[1].address]);
+    expect(proposeMintReceipt.events[0].args).to.deep.equal([proposers[0].address, users[0].address, B(10000_000000)]);
+    expect(await cnydAdmin.getMintProposal(proposers[0].address)).to.deep.equal([users[0].address, B(10000_000000), blockTime, []]);
+    await cnydAdmin.connect(approvers[0]).approveMint(proposers[0].address, true, users[0].address, 10000_000000);
+    await cnydAdmin.connect(approvers[1]).approveMint(proposers[0].address, true, users[0].address, 10000_000000);
+    expect((await cnydAdmin.getMintProposal(proposers[0].address))[3]).to.deep.equal([approvers[0].address, approvers[1].address]);
 
-    // await cnyd.connect(approvers[2]).approveMint(proposers[0].address, true, 10000_0000);
-    // expect(await cnyd.getMintProposal(proposers[0].address)).to.deep.equal([B(0), B(0), []]);
-    // expect(await cnyd.totalSupply()).to.equal(10000_0000);
-    // expect(await cnyd.balanceOf(owner.address)).to.equal(10000_0000);
+    const approveReceipt = await (await cnydAdmin.connect(approvers[2]).approveMint(
+        proposers[0].address, true, users[0].address, 10000_000000)).wait();
+
+    expect(approveReceipt.events[0].event).to.equal('MintApproved');
+    expect(await cnydToken.balanceOf(users[0].address)).equal(10000_000000);
+    expect(await cnydToken.totalSupply()).equal(10000_000000);
 
   });
 });
