@@ -120,7 +120,7 @@ abstract contract Governable is Ownable {
         return startTime > 0 && !_isProposalExpired(startTime);
     }
 
-    function _isBurnedBalanceEnough(uint256 amount) internal view virtual returns(bool);
+    function _isBurnBalanceEnough(uint256 amount) internal view virtual returns(bool);
 }
 
 abstract contract MintProposal is Governable {
@@ -203,8 +203,11 @@ abstract contract BurnProposal is Governable {
         address[]                   approvers;
     }
 
-    mapping (address => BurnProposalData) public burnProposals; /** proposer -> BurnProposalData */
+    mapping (address => BurnProposalData) private _burnProposals; /** proposer -> BurnProposalData */
 
+    function getBurnProposal(address proposer) public view returns(BurnProposalData memory) {
+        return _burnProposals[proposer];
+    }
     /**
     * @dev propose to burn
     * @param amount amount to burn
@@ -215,35 +218,35 @@ abstract contract BurnProposal is Governable {
         onlyPositiveAmount(amount) 
         returns(bool) 
     {
-        require(_isBurnedBalanceEnough(amount), "BurnProposal: burn amount exceeds contract balance");
-        require( !_isApprovable(burnProposals[msg.sender].startTime), "BurnProposal: proposal is approving" );
+        require(_isBurnBalanceEnough(amount), "BurnProposal: burn amount exceeds contract balance");
+        require( !_isApprovable(_burnProposals[msg.sender].startTime), "BurnProposal: proposal is approving" );
 
-        delete burnProposals[msg.sender]; // clear proposal data
+        delete _burnProposals[msg.sender]; // clear proposal data
         //burn by a proposer for once only otherwise would be overwritten
-        burnProposals[msg.sender].amount = amount;
-        burnProposals[msg.sender].startTime = block.timestamp;
+        _burnProposals[msg.sender].amount = amount;
+        _burnProposals[msg.sender].startTime = block.timestamp;
         emit BurnProposed(msg.sender, amount);
 
         return true;
     }
 
     function approveBurn(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
-        BurnProposalData memory proposal = burnProposals[proposer];
+        BurnProposalData memory proposal = _burnProposals[proposer];
         require( _isApprovable(proposal.startTime), "BurnProposal: proposal is not approvable" );
         require( proposal.amount == amount, "BurnProposal: proposal data mismatch" );
-        require(_isBurnedBalanceEnough(amount), "BurnProposal: burn amount exceeds contract balance");
+        require(_isBurnBalanceEnough(amount), "BurnProposal: burn amount exceeds contract balance");
         require( !_accountExistIn(msg.sender, proposal.approvers),
             "BurnProposal: approver has already approved" );
 
         bool needExec = false;
         if (approved) {
-            burnProposals[proposer].approvers.push(msg.sender);
-            if (burnProposals[proposer].approvers.length == APPROVER_COUNT) {
+            _burnProposals[proposer].approvers.push(msg.sender);
+            if (_burnProposals[proposer].approvers.length == APPROVER_COUNT) {
                 needExec = true;
-                delete burnProposals[proposer];  
+                delete _burnProposals[proposer];  
             }
         } else {
-            delete burnProposals[proposer];           
+            delete _burnProposals[proposer];           
         }
         emit BurnApproved(msg.sender, proposer, approved, amount); 
 
@@ -357,7 +360,7 @@ contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, SetApprov
         ICnydToken(token).burn(amount);
     }
 
-    function _isBurnedBalanceEnough(uint256 amount) internal view override returns(bool) {
+    function _isBurnBalanceEnough(uint256 amount) internal view override returns(bool) {
         return IERC20(token).balanceOf(token) >= amount;
     }
 
