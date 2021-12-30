@@ -45,7 +45,7 @@ abstract contract Administrable is Ownable, IAdministrable {
 abstract contract FrozenableToken is Administrable, IFrozenableToken
 {
 
-    mapping (address => bool) public _frozenAccounts;
+    mapping (address => bool) private _frozenAccounts;
 
 
     modifier whenNotFrozen(address account) {
