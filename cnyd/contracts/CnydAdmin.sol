@@ -273,7 +273,11 @@ abstract contract SetApproverProposal is Governable {
         address[]                   approvers;
     }
 
-    mapping (address => SetApproverProposalData) public setApproverProposals; /** proposer -> SetApproverProposalData */
+    mapping (address => SetApproverProposalData) public _setApproverProposals; /** proposer -> SetApproverProposalData */
+
+    function getSetApproverProposal(address proposer) public view returns(SetApproverProposalData memory) {
+        return _setApproverProposals[proposer];
+    }
 
     /**
     * @dev propose to setApprover
@@ -287,13 +291,13 @@ abstract contract SetApproverProposal is Governable {
         onlyNonZeroAccount(newApprover)
         returns(bool) 
     {
-        require( _isApprovable(setApproverProposals[msg.sender].startTime), "SetApproverProposal: proposal is approving" );
+        require( _isApprovable(_setApproverProposals[msg.sender].startTime), "SetApproverProposal: proposal is approving" );
 
-        delete setApproverProposals[msg.sender]; // clear proposal data
+        delete _setApproverProposals[msg.sender]; // clear proposal data
         //setApprover by a proposer for once only otherwise would be overwritten
-        setApproverProposals[msg.sender].index = index;
-        setApproverProposals[msg.sender].newApprover = newApprover;
-        setApproverProposals[msg.sender].startTime = block.timestamp;
+        _setApproverProposals[msg.sender].index = index;
+        _setApproverProposals[msg.sender].newApprover = newApprover;
+        _setApproverProposals[msg.sender].startTime = block.timestamp;
         emit SetApproverProposed(msg.sender, index, newApprover);
 
         return true;
@@ -308,7 +312,7 @@ abstract contract SetApproverProposal is Governable {
         returns(bool) 
     {
 
-        SetApproverProposalData memory proposal = setApproverProposals[proposer];
+        SetApproverProposalData memory proposal = _setApproverProposals[proposer];
         require( _isApprovable(proposal.startTime), "SetApproverProposal: proposal is not approvable" );
         require( proposal.index == index && proposal.newApprover == newApprover, 
             "SetApproverProposal: propose data mismatch" );
@@ -316,10 +320,10 @@ abstract contract SetApproverProposal is Governable {
             "SetApproverProposal: approver has already approved" );
 
         bool needExec = false;
-        setApproverProposals[proposer].approvers.push(msg.sender);
-        if (setApproverProposals[proposer].approvers.length == APPROVER_COUNT) {
+        _setApproverProposals[proposer].approvers.push(msg.sender);
+        if (_setApproverProposals[proposer].approvers.length == APPROVER_COUNT) {
             needExec = true;
-            delete setApproverProposals[proposer];  
+            delete _setApproverProposals[proposer];  
         }
         emit SetApproverApproved(msg.sender, proposer, index, newApprover); 
 
