@@ -109,4 +109,31 @@ describe("CnydAdmin", function () {
 
   });
 
+
+  it("test Approver Proposal", async function () {
+
+    await cnydAdmin.connect(owner).setProposer(proposers[0].address, true);
+    expect(await cnydAdmin.proposers(proposers[0].address)).equal(true);
+
+    expect(await cnydAdmin.approvers(2)).equal(approvers[2].address);
+
+    const proposeApproverReceipt = await (await cnydAdmin.connect(proposers[0]).proposeApprover(2, users[0].address)).wait(1);
+    expect(proposeApproverReceipt.events.length).to.equal(1);
+    expect(proposeApproverReceipt.events[0].event).to.equal('ApproverProposed');
+
+    let blockTime = B((await ethers.provider.getBlock(proposeApproverReceipt.blockNumber)).timestamp);
+
+    expect(proposeApproverReceipt.events[0].args).to.deep.equal([proposers[0].address, B(2), users[0].address]);
+    expect(await cnydAdmin.getApproverProposal(proposers[0].address)).to.deep.equal([B(2), users[0].address, blockTime, []]);
+    await cnydAdmin.connect(approvers[0]).approveApprover(proposers[0].address, B(2), users[0].address);
+    await cnydAdmin.connect(approvers[1]).approveApprover(proposers[0].address, B(2), users[0].address);
+    expect((await cnydAdmin.getApproverProposal(proposers[0].address))[3]).to.deep.equal([approvers[0].address, approvers[1].address]);
+
+    const approveReceipt = await (await cnydAdmin.connect(owner).approveApprover(
+        proposers[0].address, B(2), users[0].address)).wait();
+
+    expect(approveReceipt.events[0].event).to.equal('ApproverApproved');
+    expect(await cnydAdmin.approvers(2)).equal(users[0].address);
+  });
+
 });

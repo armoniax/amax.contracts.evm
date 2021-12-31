@@ -291,7 +291,7 @@ abstract contract ApproverProposal is Governable {
         onlyNonZeroAccount(newApprover)
         returns(bool) 
     {
-        require( _isApprovable(_approverProposals[msg.sender].startTime), "ApproverProposal: proposal is approving" );
+        require(!_isApprovable(_approverProposals[msg.sender].startTime), "ApproverProposal: proposal is approving" );
 
         delete _approverProposals[msg.sender]; // clear proposal data
         //approver by a proposer for once only otherwise would be overwritten
@@ -341,7 +341,7 @@ contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, ApproverP
 
     constructor(address _token, address[APPROVER_COUNT] memory _approvers) onlyNonZeroAccount(_token) {
         token = _token;
-        _approvers(_approvers);
+        _setApprovers(_approvers);
     }
 
     function pause() public onlyOwner {
