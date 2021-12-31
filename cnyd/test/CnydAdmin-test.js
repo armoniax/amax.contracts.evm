@@ -25,12 +25,12 @@ describe("CnydAdmin", function () {
   beforeEach(async () => {
     // init global variants
     accounts = await ethers.getSigners();
-    expect(accounts).length.greaterThan(11);
+    expect(accounts).length.greaterThan(15);
     // console.log("accounts:", accounts.length);
     owner = accounts[0];
     approvers = accounts.slice(1, 4);
     proposers = accounts.slice(5, 8);
-    users = accounts.slice(9, 10);
+    users = accounts.slice(9, 12);
 
     initApprovers = [
       approvers[0].address,
@@ -56,12 +56,12 @@ describe("CnydAdmin", function () {
 
     await cnydAdmin.setTokenAdmin(cnydAdmin.address);
     expect(await cnydToken.admin()).equal(cnydAdmin.address);
-  });
-
-  it("test Mint and Burn Proposal", async function () {
 
     await cnydAdmin.connect(owner).setProposer(proposers[0].address, true);
     expect(await cnydAdmin.proposers(proposers[0].address)).equal(true);
+  });
+
+  it("test Mint and Burn Proposal", async function () {
 
     const proposeMintReceipt = await (await cnydAdmin.connect(proposers[0]).proposeMint(users[0].address, 10000_000000)).wait(1);
     expect(proposeMintReceipt.events.length).to.equal(1);
@@ -112,9 +112,6 @@ describe("CnydAdmin", function () {
 
   it("test Approver Proposal", async function () {
 
-    await cnydAdmin.connect(owner).setProposer(proposers[0].address, true);
-    expect(await cnydAdmin.proposers(proposers[0].address)).equal(true);
-
     expect(await cnydAdmin.approvers(2)).equal(approvers[2].address);
 
     const proposeApproverReceipt = await (await cnydAdmin.connect(proposers[0]).proposeApprover(2, users[0].address)).wait(1);
@@ -134,6 +131,49 @@ describe("CnydAdmin", function () {
 
     expect(approveReceipt.events[0].event).to.equal('ApproverApproved');
     expect(await cnydAdmin.approvers(2)).equal(users[0].address);
+  });
+
+
+  it("test admin fee", async function () {
+
+    const totalAmount = 10000_000000;
+    const ratioPrecision = 10000;
+    const ratio = 200; // 2%, 
+    const feeRecipient = approvers[0];
+
+    expect(await cnydToken.ratioPrecision()).equal(ratioPrecision);
+
+    await cnydAdmin.connect(proposers[0]).proposeMint(users[0].address, totalAmount);
+    await cnydAdmin.connect(approvers[0]).approveMint(proposers[0].address, true, users[0].address, totalAmount);
+    await cnydAdmin.connect(approvers[1]).approveMint(proposers[0].address, true, users[0].address, totalAmount);
+    await cnydAdmin.connect(approvers[2]).approveMint(proposers[0].address, true, users[0].address, totalAmount);
+
+    await cnydAdmin.connect(owner).setAdminFeeRatio(ratio);
+    expect(await cnydToken.adminFeeRatio()).equal(ratio);
+    await cnydAdmin.connect(owner).setFeeRecipient(feeRecipient.address);
+    expect(await cnydToken.feeRecipient()).equal(feeRecipient.address);
+
+    await cnydAdmin.connect(owner).addFeeWhiteList([users[0].address, users[1].address]);
+    expect(await cnydToken.isInFeeWhiteList(users[0].address)).equal(true);
+    expect(await cnydToken.isInFeeWhiteList(users[1].address)).equal(true);
+
+    const amount1 = 1020_000000;
+    await cnydToken.connect(users[0]).transfer(users[1].address, amount1)
+    expect(await cnydToken.balanceOf(feeRecipient.address)).equal(0);
+    expect(await cnydToken.balanceOf(users[0].address)).equal(totalAmount - amount1);
+    expect(await cnydToken.balanceOf(users[1].address)).equal(amount1);
+
+    await cnydAdmin.connect(owner).delFeeWhiteList([users[1].address]);
+    expect(await cnydToken.isInFeeWhiteList(users[0].address)).equal(true);
+
+    const amount2 = 1000_000000;
+    const fee = amount2 * ratio / ratioPrecision;
+    await cnydToken.connect(users[1]).transfer(users[2].address, amount2)
+    expect(await cnydToken.balanceOf(feeRecipient.address)).equal(fee);
+    expect(await cnydToken.balanceOf(users[1].address)).equal(0);
+    expect(await cnydToken.balanceOf(users[2].address)).equal(amount2);
+    expect(await cnydToken.totalSupply()).equal(totalAmount);
+
   });
 
 });

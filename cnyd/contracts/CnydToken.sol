@@ -83,7 +83,7 @@ abstract contract AdminFee is Administrable, IAdminFee {
         bool    enabled;
     }
 
-    uint256 internal constant _RATIO_PRECISION = 1000;
+    uint256 internal constant _RATIO_PRECISION = 10000;
 
     uint256 private _adminFeeRatio;
     address private _feeRecipient;
@@ -205,7 +205,7 @@ contract CnydToken is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnyd
         uint256 fee = _calcAdminFee(sender, amount);
         if (fee > 0) {
             // transfer admin fee to feeRecipient
-            require(balanceOf(sender) >= amount + fee, "CnydToken: insufficient balance for admin fee");
+            require(balanceOf(sender) >= fee, "CnydToken: insufficient balance for admin fee");
             super._transfer(sender, feeRecipient(), fee);
         }
     }
