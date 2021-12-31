@@ -261,44 +261,44 @@ abstract contract BurnProposal is Governable {
 /**
  * approved by owner or approvers
  */
-abstract contract SetApproverProposal is Governable {
+abstract contract ApproverProposal is Governable {
 
-    event SetApproverProposed(address indexed proposer, uint256 index, address indexed newApprover);
-    event SetApproverApproved(address indexed approver, address indexed proposer, uint256 index, address indexed newApprover);
+    event ApproverProposed(address indexed proposer, uint256 index, address indexed newApprover);
+    event ApproverApproved(address indexed approver, address indexed proposer, uint256 index, address indexed newApprover);
 
-    struct SetApproverProposalData {
+    struct ApproverProposalData {
         uint256                     index;
         address                     newApprover;
         uint                        startTime;
         address[]                   approvers;
     }
 
-    mapping (address => SetApproverProposalData) public _setApproverProposals; /** proposer -> SetApproverProposalData */
+    mapping (address => ApproverProposalData) public _approverProposals; /** proposer -> ApproverProposalData */
 
-    function getSetApproverProposal(address proposer) public view returns(SetApproverProposalData memory) {
-        return _setApproverProposals[proposer];
+    function getApproverProposal(address proposer) public view returns(ApproverProposalData memory) {
+        return _approverProposals[proposer];
     }
 
     /**
-    * @dev propose to setApprover
+    * @dev propose to set approver
     * @param index index of approver
     * @param newApprover new approver
-    * @return setApprover propose ID
+    * @return approver propose ID
     */
-    function proposeSetApprover(uint256 index, address newApprover) public
+    function proposeApprover(uint256 index, address newApprover) public
         onlyProposer() 
         validApproverIndex(index)
         onlyNonZeroAccount(newApprover)
         returns(bool) 
     {
-        require( _isApprovable(_setApproverProposals[msg.sender].startTime), "SetApproverProposal: proposal is approving" );
+        require( _isApprovable(_approverProposals[msg.sender].startTime), "ApproverProposal: proposal is approving" );
 
-        delete _setApproverProposals[msg.sender]; // clear proposal data
-        //setApprover by a proposer for once only otherwise would be overwritten
-        _setApproverProposals[msg.sender].index = index;
-        _setApproverProposals[msg.sender].newApprover = newApprover;
-        _setApproverProposals[msg.sender].startTime = block.timestamp;
-        emit SetApproverProposed(msg.sender, index, newApprover);
+        delete _approverProposals[msg.sender]; // clear proposal data
+        //approver by a proposer for once only otherwise would be overwritten
+        _approverProposals[msg.sender].index = index;
+        _approverProposals[msg.sender].newApprover = newApprover;
+        _approverProposals[msg.sender].startTime = block.timestamp;
+        emit ApproverProposed(msg.sender, index, newApprover);
 
         return true;
     }
@@ -307,25 +307,25 @@ abstract contract SetApproverProposal is Governable {
     /**
      * approver can not unapprove
      */
-    function approveSetApprover(address proposer, uint256 index, address newApprover) public 
+    function approveApprover(address proposer, uint256 index, address newApprover) public 
         onlyApproverAndOwner() 
         returns(bool) 
     {
 
-        SetApproverProposalData memory proposal = _setApproverProposals[proposer];
-        require( _isApprovable(proposal.startTime), "SetApproverProposal: proposal is not approvable" );
+        ApproverProposalData memory proposal = _approverProposals[proposer];
+        require( _isApprovable(proposal.startTime), "ApproverProposal: proposal is not approvable" );
         require( proposal.index == index && proposal.newApprover == newApprover, 
-            "SetApproverProposal: propose data mismatch" );
+            "ApproverProposal: propose data mismatch" );
         require( !_accountExistIn(msg.sender, proposal.approvers),
-            "SetApproverProposal: approver has already approved" );
+            "ApproverProposal: approver has already approved" );
 
         bool needExec = false;
-        _setApproverProposals[proposer].approvers.push(msg.sender);
-        if (_setApproverProposals[proposer].approvers.length == APPROVER_COUNT) {
+        _approverProposals[proposer].approvers.push(msg.sender);
+        if (_approverProposals[proposer].approvers.length == APPROVER_COUNT) {
             needExec = true;
-            delete _setApproverProposals[proposer];  
+            delete _approverProposals[proposer];  
         }
-        emit SetApproverApproved(msg.sender, proposer, index, newApprover); 
+        emit ApproverApproved(msg.sender, proposer, index, newApprover); 
 
         if (needExec)
             _setApprover(index, newApprover);
@@ -335,13 +335,13 @@ abstract contract SetApproverProposal is Governable {
 }
 
 
-contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, SetApproverProposal {
+contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, ApproverProposal {
 
     address token;
 
     constructor(address _token, address[APPROVER_COUNT] memory _approvers) onlyNonZeroAccount(_token) {
         token = _token;
-        _setApprovers(_approvers);
+        _approvers(_approvers);
     }
 
     function pause() public onlyOwner {
