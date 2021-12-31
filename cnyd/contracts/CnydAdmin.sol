@@ -379,4 +379,20 @@ contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, ApproverP
     function setTokenAdmin(address newAdmin) public onlyOwner { 
         IAdministrable(token).setAdmin(newAdmin);
     }
+
+    function setAdminFeeRatio(uint256 ratio) public onlyOwner {
+        IAdminFee(token).setAdminFeeRatio(ratio);
+    }
+
+    function setFeeRecipient(address recipient) public onlyOwner {
+        IAdminFee(token).setFeeRecipient(recipient);
+    }
+
+    function addFeeWhiteList(address[] memory accounts) public onlyOwner {
+        IAdminFee(token).addFeeWhiteList(accounts);
+    }
+
+    function delFeeWhiteList(address[] memory accounts) public onlyOwner {
+        IAdminFee(token).delFeeWhiteList(accounts);
+    }
 }
