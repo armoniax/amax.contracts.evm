@@ -131,6 +131,13 @@ abstract contract AdminFee is Administrable, IAdminFee {
         emit FeeWhiteListDeleted(accounts);
     }
 
+    function _getAdminFeeRatioBy(address from, address to) internal view returns(uint256) {
+        if (_feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[from] && !_adminFeeWhiteList[to]) {
+            return _adminFeeRatio;
+        }
+        return 0;
+    }
+
     function _calcAdminFee(address account, uint256 amount) internal view returns(uint256) {
         if (_feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[account]) {
             return amount * _adminFeeRatio / _RATIO_PRECISION;
@@ -193,20 +200,39 @@ contract CnydToken is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnyd
         emit ForceTransfer(from, to, amount);
     }
 
+    function getReceivedAmount(
+        address from,
+        address to,
+        uint256 sentAmount
+    ) public override view returns (uint256 receivedAmount, uint256 feeAmount) {
+        uint256 ratio = _getAdminFeeRatioBy(from, to); 
+        feeAmount = sentAmount * ratio / _RATIO_PRECISION;
+        receivedAmount = sentAmount - feeAmount;
+    }
+
+    function getSendAmount(
+        address from,
+        address to,
+        uint256 _receivedAmount
+    ) public override view returns (uint256 sendAmount, uint256 feeAmount) {
+        uint256 ratio = _getAdminFeeRatioBy(from, to);
+        sendAmount = _receivedAmount * _RATIO_PRECISION / (_RATIO_PRECISION - ratio);
+        feeAmount = sendAmount - _receivedAmount;
+    }
+
    function _transfer(address sender, address recipient, uint256 amount) internal override
         whenNotPaused  
         whenNotFrozen(sender)
         whenNotFrozen(recipient)
     {
         require(amount > 0, "CnydToken: non-positive amount not allowed");
-        
-        super._transfer(sender, recipient, amount);
 
-        uint256 fee = _calcAdminFee(sender, amount);
-        if (fee > 0) {
-            // transfer admin fee to feeRecipient
-            require(balanceOf(sender) >= fee, "CnydToken: insufficient balance for admin fee");
-            super._transfer(sender, feeRecipient(), fee);
+        (uint256 receivedAmount, uint256 feeAmount) = getReceivedAmount(sender, recipient, amount);
+        
+        super._transfer(sender, recipient, receivedAmount);
+
+        if (feeAmount > 0) {
+            super._transfer(sender, feeRecipient(), feeAmount);
         }
     }
 
