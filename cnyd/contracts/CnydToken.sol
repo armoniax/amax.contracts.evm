@@ -87,7 +87,7 @@ abstract contract AdminFee is Administrable, IAdminFee {
 
     uint256 private _adminFeeRatio;
     address private _feeRecipient;
-    mapping(address => bool) private _adminFeeWhiteList;
+    mapping(address => bool) private _adminFeeWhitelist;
 
     function ratioPrecision() external view virtual override returns(uint256) {
         return _RATIO_PRECISION;
@@ -112,35 +112,35 @@ abstract contract AdminFee is Administrable, IAdminFee {
         _feeRecipient = recipient;
     }
 
-    function isInFeeWhiteList(address account) public view virtual override returns(bool) {
-        return _adminFeeWhiteList[account];
+    function isInFeeWhitelist(address account) public view virtual override returns(bool) {
+        return _adminFeeWhitelist[account];
     }
 
-    function addFeeWhiteList(address[] memory accounts) public virtual override onlyAdmin {
+    function addFeeWhitelist(address[] memory accounts) public virtual override onlyAdmin {
         require(accounts.length > 0, "empty accounts not allowed");
         for (uint i = 0; i < accounts.length; i++) {
-            _adminFeeWhiteList[accounts[i]] = true;
+            _adminFeeWhitelist[accounts[i]] = true;
         }
-        emit FeeWhiteListAdded(accounts);
+        emit FeeWhitelistAdded(accounts);
     }
 
-    function delFeeWhiteList(address[] memory accounts) public virtual override onlyAdmin {
+    function delFeeWhitelist(address[] memory accounts) public virtual override onlyAdmin {
         require(accounts.length > 0, "empty accounts not allowed");
         for (uint i = 0; i < accounts.length; i++) {
-            delete _adminFeeWhiteList[accounts[i]];
+            delete _adminFeeWhitelist[accounts[i]];
         }
-        emit FeeWhiteListDeleted(accounts);
+        emit FeeWhitelistDeleted(accounts);
     }
 
     function _getAdminFeeRatioBy(address from, address to) internal view returns(uint256) {
-        if (_feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[from] && !_adminFeeWhiteList[to]) {
+        if (_feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhitelist[from] && !_adminFeeWhitelist[to]) {
             return _adminFeeRatio;
         }
         return 0;
     }
 
     function _calcAdminFee(address account, uint256 amount) internal view returns(uint256) {
-        if (_feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhiteList[account]) {
+        if (_feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhitelist[account]) {
             return amount * _adminFeeRatio / _RATIO_PRECISION;
         }
         return 0;

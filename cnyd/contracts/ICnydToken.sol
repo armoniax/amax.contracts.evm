@@ -55,8 +55,8 @@ interface IAdminFee {
 
     event AdminFeeRatioChanged(uint256 oldRatio, uint256 newRatio);
     event FeeRecipientChanged(address indexed oldFeeRecipient, address indexed newFeeRecipient);
-    event FeeWhiteListAdded(address[] accounts);
-    event FeeWhiteListDeleted(address[] accounts);
+    event FeeWhitelistAdded(address[] accounts);
+    event FeeWhitelistDeleted(address[] accounts);
 
 
     function ratioPrecision() external view returns(uint256);
@@ -69,11 +69,11 @@ interface IAdminFee {
 
     function setFeeRecipient(address recipient) external;
 
-    function isInFeeWhiteList(address account) external view returns(bool);
+    function isInFeeWhitelist(address account) external view returns(bool);
 
-    function addFeeWhiteList(address[] memory accounts) external;
+    function addFeeWhitelist(address[] memory accounts) external;
 
-    function delFeeWhiteList(address[] memory accounts) external;
+    function delFeeWhitelist(address[] memory accounts) external;
     
 }
 
