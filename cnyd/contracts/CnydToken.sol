@@ -98,6 +98,7 @@ abstract contract AdminFee is Administrable, IAdminFee {
     }
 
     function setAdminFeeRatio(uint256 ratio) public virtual override onlyAdmin {
+        require(ratio < _RATIO_PRECISION, "AdminFee: ratio is too large");
         emit AdminFeeRatioChanged(_adminFeeRatio, ratio);
         _adminFeeRatio = ratio;
     }
