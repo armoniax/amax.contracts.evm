@@ -77,47 +77,6 @@ interface IAdminFee {
     
 }
 
-interface IERC20WithFee is IERC20 {
-
-    /**
-     * Transfers `amount` amount of token to address `to` and MUST emit the Transfer event.
-     * The balance of msg.sender will be deducted by `amount` + _fee. Add `amount` amount to the balance of the receiver.
-     * If zero fees should be applied due to whitelist, assume the above _fee to be zero.
-     */
-    function transferExactDest(address to, uint256 amount) external returns (bool success);
-
-    /**
-     * Transfers `amount` amount of token to address `to` and MUST fire the Transfer event. 
-     * The balance of `from` will be deducted by `amount` + _fee. If zero fees should be applied due to whitelist, 
-     * assume the above _fee value to be zero.
-     */
-    function transferExactDestFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool success);
-
-    /**
-     * A query function that returns the amount of tokens a receiver will get if a sender sends `sentAmount` tokens. 
-     * Note the `to` and `from` addresses are present, the implementation should use those values to check for any whitelist.
-     */
-    function getReceivedAmount(
-        address from,
-        address to,
-        uint256 sentAmount
-    ) external view returns (uint256 receivedAmount, uint256 feeAmount);
-
-    /**
-     * Returns the amount of tokens the sender has to send if he wants the receiver to receive exactly `receivedAmount` tokens.
-     * Note the `to` and `from` addresses are present, the implementation should use those values to check for any whitelist.
-     */
-    function getSendAmount(
-        address from,
-        address to,
-        uint256 receivedAmount
-    ) external view returns (uint256 sendAmount, uint256 feeAmount);
-}
-
 interface ICnydToken is IERC20 {
 
     event ForceTransfer(address indexed from, address indexed to, uint256 amount);
