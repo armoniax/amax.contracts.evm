@@ -49,7 +49,7 @@ abstract contract Ownable is IOwnable
     }
 
     modifier onlyNonZeroAccount(address account) {
-        require(account != address(this), "Governable: zero account not allowed" );
+        require(account != address(0), "zero account not allowed" );
         _;
     }
 
