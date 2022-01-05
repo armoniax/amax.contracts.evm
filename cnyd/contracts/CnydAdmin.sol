@@ -24,6 +24,11 @@ abstract contract Governable is Ownable {
 
     mapping (address => bool) public proposers;
 
+    modifier onlyInit() virtual {
+        require(approvers[0] != address(0), "Token contract is not init");
+        _;
+    }
+
     /**
     * @dev Throws if called by any account other than the approver.
     */
@@ -56,6 +61,10 @@ abstract contract Governable is Ownable {
     modifier validApproverIndex(uint256 index) {
         require(index < APPROVER_COUNT, "Governable: approver index invalid" );
         _;
+    }
+
+    function isInit() public view virtual returns(bool) {
+        return approvers[0] != address(0);
     }
 
     function _isApproverDuplicated(address[APPROVER_COUNT] memory _approvers) internal pure returns(bool) {
@@ -95,7 +104,7 @@ abstract contract Governable is Ownable {
         emit ApproverChanged(id, account, oldAccount);
     }
 
-    function setProposer(address account, bool enabled) public onlyOwner() {
+    function setProposer(address account, bool enabled) public onlyOwner() onlyInit() {
         require(proposers[account] != enabled, "Governable: no change of enabled");
         proposers[account] = enabled;
         emit ProposerChanged(account, enabled);
@@ -148,6 +157,7 @@ abstract contract MintProposal is Governable {
     * @return mint propose ID
     */
     function proposeMint(address to, uint256 amount) public 
+        onlyInit()
         onlyProposer() 
         onlyNonZeroAccount(to)
         onlyPositiveAmount(amount) 
@@ -165,7 +175,7 @@ abstract contract MintProposal is Governable {
         return true;
     }
 
-    function approveMint(address proposer, bool approved, address to, uint256 amount) public onlyApprover() returns(bool) {
+    function approveMint(address proposer, bool approved, address to, uint256 amount) public onlyInit() onlyApprover() returns(bool) {
         MintProposalData memory proposal = mintProposals[proposer];
         require( _isApprovable(proposal.startTime), "MintProposal: proposal is not approvable" );
         require( proposal.to == to && proposal.amount == amount, "MintProposal: proposal data mismatch" );
@@ -214,6 +224,7 @@ abstract contract BurnProposal is Governable {
     * @return burn propose ID
     */
     function proposeBurn(uint256 amount) public 
+        onlyInit()
         onlyProposer()
         onlyPositiveAmount(amount) 
         returns(bool) 
@@ -230,7 +241,7 @@ abstract contract BurnProposal is Governable {
         return true;
     }
 
-    function approveBurn(address proposer, bool approved, uint256 amount) public onlyApprover() returns(bool) {
+    function approveBurn(address proposer, bool approved, uint256 amount) public onlyInit() onlyApprover() returns(bool) {
         BurnProposalData memory proposal = _burnProposals[proposer];
         require( _isApprovable(proposal.startTime), "BurnProposal: proposal is not approvable" );
         require( proposal.amount == amount, "BurnProposal: proposal data mismatch" );
@@ -286,6 +297,7 @@ abstract contract ApproverProposal is Governable {
     * @return approver propose ID
     */
     function proposeApprover(uint256 index, address newApprover) public
+        onlyInit()
         onlyProposer() 
         validApproverIndex(index)
         onlyNonZeroAccount(newApprover)
@@ -308,6 +320,7 @@ abstract contract ApproverProposal is Governable {
      * approver can not unapprove
      */
     function approveApprover(address proposer, uint256 index, address newApprover) public 
+        onlyInit()
         onlyApproverAndOwner() 
         returns(bool) 
     {
@@ -337,26 +350,42 @@ abstract contract ApproverProposal is Governable {
 
 contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, ApproverProposal {
 
-    address token;
+    address public token;
 
-    constructor(address _token, address[APPROVER_COUNT] memory _approvers) onlyNonZeroAccount(_token) {
-        token = _token;
-        _setApprovers(_approvers);
+    modifier onlyInit() override {
+        require(token != address(0), 
+            "Token contract is not init");
+        _;
     }
 
-    function pause() public onlyOwner {
+    function isInit() public view override returns(bool) {
+        return token != address(0);
+    }
+
+    function init(address _token, address[APPROVER_COUNT] memory _approvers) public onlyOwner onlyNonZeroAccount(_token) { 
+        require(token == address(0), "Token contract has been initialized");
+        token = _token;
+        _setApprovers(_approvers);
+        
+        require(IOwnable(_token).owner() != address(this), "This contract has been the owner of Token contract");
+        require(IOwnable(_token).proposedOwner() == address(this), "This contract is not the proposed owner of Token contract");
+        takeTokenOwnership();
+        setTokenAdmin(address(this));
+    }
+
+    function pause() public onlyOwner onlyInit() {
         ICnydToken(token).pause();
     }
 
-    function unpause() public onlyOwner {
+    function unpause() public onlyOwner onlyInit() {
         ICnydToken(token).unpause();
     }
 
-    function forceTransfer(address from, address to, uint256 amount) public onlyOwner {
+    function forceTransfer(address from, address to, uint256 amount) public onlyOwner onlyInit() {
         ICnydToken(token).forceTransfer(from, to, amount);
     }
 
-    function _doMint(address to, uint256 amount) internal override {
+    function _doMint(address to, uint256 amount) internal override onlyInit() {
         ICnydToken(token).mint(to, amount);
     }
 
@@ -368,31 +397,31 @@ contract CnydAdmin is Ownable, Governable, MintProposal, BurnProposal, ApproverP
         return IERC20(token).balanceOf(token) >= amount;
     }
 
-    function proposeTokenOwner(address newOwner) public onlyOwner {
+    function proposeTokenOwner(address newOwner) public onlyOwner onlyInit() {
         IOwnable(token).proposeOwner(newOwner);
     }
 
-    function takeTokenOwnership() public onlyOwner {
+    function takeTokenOwnership() public onlyOwner onlyInit() {
         IOwnable(token).takeOwnership();
     }
 
-    function setTokenAdmin(address newAdmin) public onlyOwner { 
+    function setTokenAdmin(address newAdmin) public onlyOwner onlyInit() { 
         IAdministrable(token).setAdmin(newAdmin);
     }
 
-    function setAdminFeeRatio(uint256 ratio) public onlyOwner {
+    function setAdminFeeRatio(uint256 ratio) public onlyOwner onlyInit() {
         IAdminFee(token).setAdminFeeRatio(ratio);
     }
 
-    function setFeeRecipient(address recipient) public onlyOwner {
+    function setFeeRecipient(address recipient) public onlyOwner onlyInit() {
         IAdminFee(token).setFeeRecipient(recipient);
     }
 
-    function addFeeWhitelist(address[] memory accounts) public onlyOwner {
+    function addFeeWhitelist(address[] memory accounts) public onlyOwner onlyInit() {
         IAdminFee(token).addFeeWhitelist(accounts);
     }
 
-    function delFeeWhitelist(address[] memory accounts) public onlyOwner {
+    function delFeeWhitelist(address[] memory accounts) public onlyOwner onlyInit() {
         IAdminFee(token).delFeeWhitelist(accounts);
     }
 }

@@ -45,17 +45,14 @@ describe("CnydAdmin", function () {
     await cnydToken.deployed();
     // console.log("cnydToken:", cnydToken);
 
-    cnydAdmin = await CnydAdmin.connect(owner).deploy(cnydToken.address, initApprovers);
+    cnydAdmin = await CnydAdmin.connect(owner).deploy();
     await cnydAdmin.deployed();
 
     await cnydToken.proposeOwner(cnydAdmin.address);
     expect(await cnydToken.proposedOwner()).equal(cnydAdmin.address);
 
-    await cnydAdmin.takeTokenOwnership();
+    await cnydAdmin.init(cnydToken.address, initApprovers);
     expect(await cnydToken.owner()).equal(cnydAdmin.address);
-
-    await cnydAdmin.setTokenAdmin(cnydAdmin.address);
-    expect(await cnydToken.admin()).equal(cnydAdmin.address);
 
     await cnydAdmin.connect(owner).setProposer(proposers[0].address, true);
     expect(await cnydAdmin.proposers(proposers[0].address)).equal(true);

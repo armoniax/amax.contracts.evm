@@ -40,26 +40,14 @@ task("deployCnydToken", "Deploy CnydToken contract")
   });
 
 task("deployCnydAdmin", "Deploy CnydAdmin contract")
-  .addParam("token", "The address of CnydToken contract")
-  .addParam("approvers", "Address array of approvers, JSON array format", "[]", types.json)
   .addOptionalParam("verify", "Whether to verify contract, true|false", false, types.boolean)
   .setAction(async (taskArgs) => {
     const contractName = "CnydAdmin";
 
     console.log("args: ", taskArgs)
 
-    if (!hre.ethers.utils.isAddress(taskArgs.token)) {
-      throw Error ('Invalid token address:', taskArgs.token)
-    }
-
-    taskArgs.approvers.forEach(element => {
-        if (!hre.ethers.utils.isAddress(element)) {
-          throw Error ('Invalid approver address:', element)
-        }
-    });
-
     const ContractFactory = await hre.ethers.getContractFactory(contractName);
-    const contract = await ContractFactory.deploy(taskArgs.token, taskArgs.approvers);
+    const contract = await ContractFactory.deploy();
 
     await contract.deployed();
 
@@ -67,11 +55,59 @@ task("deployCnydAdmin", "Deploy CnydAdmin contract")
 
     if (taskArgs.verify) {
       await hre.run("verify:verify", {
-        address: contract.address,
-        constructorArguments: [taskArgs.token, taskArgs.approvers]
+        address: contract.address
       });
     }
   });
+
+task("initCnydAdmin", "Initialize CnydAdmin contract")
+  .addParam("admin", "The address of CnydAdmin contract")
+  .addParam("token", "The address of CnydToken contract")
+  .addParam("approvers", "Address array of approvers, JSON array format", "[]", types.json)
+  .setAction(async (taskArgs) => {
+    const adminContractName = "CnydAdmin";
+    const tokenContractName = "CnydToken";
+
+    console.log("args: ", taskArgs)
+
+    if (!hre.ethers.utils.isAddress(taskArgs.admin)) {
+      throw Error ('Invalid token address:', taskArgs.token)
+    }
+    if (!hre.ethers.utils.isAddress(taskArgs.token)) {
+      throw Error ('Invalid token address:', taskArgs.token)
+    }
+
+    taskArgs.approvers.forEach(element => {
+      if (!hre.ethers.utils.isAddress(element)) {
+        throw Error ('Invalid approver address:', element)
+      }
+  });
+
+    const adminContract = await hre.ethers.getContractAt(adminContractName, taskArgs.admin);
+    const tokenContract = await hre.ethers.getContractAt(tokenContractName, taskArgs.token);
+    
+    const isInit = await adminContract.isInit()
+    console.log("isInit", isInit)
+    if (isInit) {
+      throw Error ('CnydAdmin has been init')
+    }
+    
+    const curTokenOwner = await tokenContract.owner()
+    if (curTokenOwner == taskArgs.admin) {
+      throw Error ('The owner of CnydToken is already CnydAdmin')
+    }
+
+    const curTokenProposedOwner = await tokenContract.proposedOwner()
+    if (curTokenProposedOwner != taskArgs.admin) {
+      console.log("Propose owner of CnydToken")
+      await tokenContract.proposeOwner(taskArgs.admin)
+    }
+
+    console.log("Init CnydAdmin ...")
+    await adminContract.init(taskArgs.token, taskArgs.approvers)
+    
+    console.log("Init CnydAdmin completed")
+});
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
