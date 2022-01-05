@@ -211,14 +211,14 @@ contract CnydToken is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnyd
         receivedAmount = sentAmount - feeAmount;
     }
 
-    function getSendAmount(
+    function getSentAmount(
         address from,
         address to,
         uint256 _receivedAmount
-    ) public override view returns (uint256 sendAmount, uint256 feeAmount) {
+    ) public override view returns (uint256 sentAmount, uint256 feeAmount) {
         uint256 ratio = _getAdminFeeRatioBy(from, to);
-        sendAmount = _receivedAmount * _RATIO_PRECISION / (_RATIO_PRECISION - ratio);
-        feeAmount = sendAmount - _receivedAmount;
+        sentAmount = _receivedAmount * _RATIO_PRECISION / (_RATIO_PRECISION - ratio);
+        feeAmount = sentAmount - _receivedAmount;
     }
 
    function _transfer(address sender, address recipient, uint256 amount) internal override

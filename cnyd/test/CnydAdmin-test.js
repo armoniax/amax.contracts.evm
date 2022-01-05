@@ -173,7 +173,7 @@ describe("CnydAdmin", function () {
     expect(sentAmount).to.equal(parseInt(receivedAmount * ratioPrecision / (ratioPrecision - ratio)));
     expect(sentAmount).to.equal(receivedAmount + feeAmount);
 
-    expect(await cnydToken.getSendAmount(users[1].address, users[2].address, receivedAmount)).to.deep.equal([B(sentAmount), B(feeAmount)]);
+    expect(await cnydToken.getSentAmount(users[1].address, users[2].address, receivedAmount)).to.deep.equal([B(sentAmount), B(feeAmount)]);
     expect(await cnydToken.getReceivedAmount(users[1].address, users[2].address, sentAmount)).to.deep.equal([B(receivedAmount), B(feeAmount)]);
 
     await cnydToken.connect(users[1]).transfer(users[2].address, sentAmount)

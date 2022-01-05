@@ -126,9 +126,9 @@ interface ICnydToken is IERC20 {
      * Returns the amount of tokens the sender has to send if he wants the receiver to receive exactly `receivedAmount` tokens.
      * Note the `to` and `from` addresses are present, the implementation should use those values to check for any whitelist.
      */
-    function getSendAmount(
+    function getSentAmount(
         address from,
         address to,
         uint256 receivedAmount
-    ) external view returns (uint256 sendAmount, uint256 feeAmount);
+    ) external view returns (uint256 sentAmount, uint256 feeAmount);
 }
