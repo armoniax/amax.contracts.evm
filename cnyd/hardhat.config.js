@@ -5,6 +5,8 @@ require("@nomiclabs/hardhat-waffle");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
 
+const { types } = require("hardhat/config");
+
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
@@ -14,6 +16,62 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
     console.log(account.address);
   }
 });
+
+
+task("deployCnydToken", "Deploy CnydToken contract")
+  .addOptionalParam("verify", "Whether to verify contract, true|false", false, types.boolean)
+  .setAction(async (taskArgs) => {
+    const contractName = "CnydToken";
+
+    console.log("args: ", taskArgs)
+
+    const ContractFactory = await hre.ethers.getContractFactory(contractName);
+    const contract = await ContractFactory.deploy();
+
+    await contract.deployed();
+
+    console.log("contract", contractName, "deployed to:", contract.address);
+
+    if (taskArgs.verify) {
+      await hre.run("verify:verify", {
+        address: contract.address
+      });
+    }
+  });
+
+task("deployCnydAdmin", "Deploy CnydAdmin contract")
+  .addParam("token", "The address of CnydToken contract")
+  .addParam("approvers", "Address array of approvers, JSON array format", "[]", types.json)
+  .addOptionalParam("verify", "Whether to verify contract, true|false", false, types.boolean)
+  .setAction(async (taskArgs) => {
+    const contractName = "CnydAdmin";
+
+    console.log("args: ", taskArgs)
+
+    if (!hre.ethers.utils.isAddress(taskArgs.token)) {
+      throw Error ('Invalid token address:', taskArgs.token)
+    }
+
+    taskArgs.approvers.forEach(element => {
+        if (!hre.ethers.utils.isAddress(element)) {
+          throw Error ('Invalid approver address:', element)
+        }
+    });
+
+    const ContractFactory = await hre.ethers.getContractFactory(contractName);
+    const contract = await ContractFactory.deploy(taskArgs.token, taskArgs.approvers);
+
+    await contract.deployed();
+
+    console.log("contract", contractName, "deployed to:", contract.address);
+
+    if (taskArgs.verify) {
+      await hre.run("verify:verify", {
+        address: contract.address,
+        constructorArguments: [taskArgs.token, taskArgs.approvers]
+      });
+    }
+  });
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
