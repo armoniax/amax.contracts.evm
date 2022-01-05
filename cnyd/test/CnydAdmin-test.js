@@ -153,26 +153,47 @@ describe("CnydAdmin", function () {
     await cnydAdmin.connect(owner).setFeeRecipient(feeRecipient.address);
     expect(await cnydToken.feeRecipient()).equal(feeRecipient.address);
 
-    await cnydAdmin.connect(owner).addFeeWhiteList([users[0].address, users[1].address]);
-    expect(await cnydToken.isInFeeWhiteList(users[0].address)).equal(true);
-    expect(await cnydToken.isInFeeWhiteList(users[1].address)).equal(true);
+    await cnydAdmin.connect(owner).addFeeWhitelist([users[0].address, users[1].address]);
+    expect(await cnydToken.isInFeeWhitelist(users[0].address)).equal(true);
+    expect(await cnydToken.isInFeeWhitelist(users[1].address)).equal(true);
 
-    const amount1 = 1020_000000;
+    const amount1 = 1020_408163;
     await cnydToken.connect(users[0]).transfer(users[1].address, amount1)
     expect(await cnydToken.balanceOf(feeRecipient.address)).equal(0);
     expect(await cnydToken.balanceOf(users[0].address)).equal(totalAmount - amount1);
     expect(await cnydToken.balanceOf(users[1].address)).equal(amount1);
 
-    await cnydAdmin.connect(owner).delFeeWhiteList([users[1].address]);
-    expect(await cnydToken.isInFeeWhiteList(users[0].address)).equal(true);
+    await cnydAdmin.connect(owner).delFeeWhitelist([users[1].address]);
+    expect(await cnydToken.isInFeeWhitelist(users[0].address)).equal(true);
 
-    const amount2 = 1000_000000;
-    const fee = amount2 * ratio / ratioPrecision;
-    await cnydToken.connect(users[1]).transfer(users[2].address, amount2)
-    expect(await cnydToken.balanceOf(feeRecipient.address)).equal(fee);
+    const receivedAmount = 1000_000000;
+    const sentAmount = 1020408163;
+    const feeAmount = 20408163;
+    expect(receivedAmount).to.equal(parseInt(sentAmount - parseInt(sentAmount * ratio / ratioPrecision)));
+    expect(sentAmount).to.equal(parseInt(receivedAmount * ratioPrecision / (ratioPrecision - ratio)));
+    expect(sentAmount).to.equal(receivedAmount + feeAmount);
+
+    expect(await cnydToken.getSendAmount(users[1].address, users[2].address, receivedAmount)).to.deep.equal([B(sentAmount), B(feeAmount)]);
+    expect(await cnydToken.getReceivedAmount(users[1].address, users[2].address, sentAmount)).to.deep.equal([B(receivedAmount), B(feeAmount)]);
+
+    await cnydToken.connect(users[1]).transfer(users[2].address, sentAmount)
+    expect(await cnydToken.balanceOf(feeRecipient.address)).equal(feeAmount);
     expect(await cnydToken.balanceOf(users[1].address)).equal(0);
-    expect(await cnydToken.balanceOf(users[2].address)).equal(amount2);
+    expect(await cnydToken.balanceOf(users[2].address)).equal(receivedAmount);
     expect(await cnydToken.totalSupply()).equal(totalAmount);
+
+  });
+
+
+  it("test admin fee calc", async function () {
+
+    const ratioPrecision = 10000;
+    const ratio = 200; // 2%, 
+
+    for (let receivedAmount = 1; receivedAmount < 10000; receivedAmount++) {
+      const sentAmount = parseInt(receivedAmount * ratioPrecision / (ratioPrecision - ratio));
+      expect(receivedAmount).to.equal(parseInt(sentAmount - parseInt(sentAmount * ratio / ratioPrecision)));
+    }
 
   });
 
