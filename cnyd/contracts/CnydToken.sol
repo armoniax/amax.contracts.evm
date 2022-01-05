@@ -24,7 +24,7 @@ abstract contract Administrable is Ownable, IAdministrable {
         _;
     }
 
-    function admin() external view virtual override returns(address) {
+    function admin() public view virtual override returns(address) {
         return _admin;
     }
 
