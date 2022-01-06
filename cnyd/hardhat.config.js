@@ -22,8 +22,10 @@ task("deployCnydToken", "Deploy CnydToken contract")
   .addOptionalParam("verify", "Whether to verify contract, true|false", false, types.boolean)
   .setAction(async (taskArgs) => {
     const contractName = "CnydToken";
-
     console.log("args: ", taskArgs)
+    // If this script is run directly using `node` you may want to call compile
+    // manually to make sure everything is compiled
+    await hre.run('compile');
 
     const ContractFactory = await hre.ethers.getContractFactory(contractName);
     const contract = await ContractFactory.deploy();
@@ -43,8 +45,10 @@ task("deployCnydAdmin", "Deploy CnydAdmin contract")
   .addOptionalParam("verify", "Whether to verify contract, true|false", false, types.boolean)
   .setAction(async (taskArgs) => {
     const contractName = "CnydAdmin";
-
     console.log("args: ", taskArgs)
+    // If this script is run directly using `node` you may want to call compile
+    // manually to make sure everything is compiled
+    await hre.run('compile');
 
     const ContractFactory = await hre.ethers.getContractFactory(contractName);
     const contract = await ContractFactory.deploy();
@@ -98,8 +102,9 @@ task("initCnydAdmin", "Initialize CnydAdmin contract")
 
     const curTokenProposedOwner = await tokenContract.proposedOwner()
     if (curTokenProposedOwner != taskArgs.admin) {
-      console.log("Propose owner of CnydToken")
-      await tokenContract.proposeOwner(taskArgs.admin)
+      console.log("Propose owner of CnydToken ...");
+      const tx = await tokenContract.proposeOwner(taskArgs.admin)
+      tx.wait(3);
     }
 
     console.log("Init CnydAdmin ...")
