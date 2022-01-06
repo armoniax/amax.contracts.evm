@@ -133,14 +133,6 @@ abstract contract AdminFee is Administrable, IAdminFee {
         }
         return 0;
     }
-
-    function _calcAdminFee(address account, uint256 amount) internal view returns(uint256) {
-        if (_feeRecipient != address(0) && _adminFeeRatio != 0 && !_adminFeeWhitelist[account]) {
-            return amount * _adminFeeRatio / _RATIO_PRECISION;
-        }
-        return 0;
-    }
-    
 }
 
 contract CnydToken is ERC20, Pausable, Ownable, FrozenableToken, AdminFee, ICnydToken {
