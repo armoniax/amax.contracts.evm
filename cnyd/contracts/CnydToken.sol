@@ -77,11 +77,6 @@ abstract contract FrozenableToken is Administrable, IFrozenableToken
 }
 
 abstract contract AdminFee is Administrable, IAdminFee {
-    
-    struct FeeRatioData {
-        uint256 ratio;
-        bool    enabled;
-    }
 
     uint256 internal constant _RATIO_PRECISION = 10000;
 

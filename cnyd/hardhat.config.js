@@ -87,7 +87,6 @@ task("initCnydAdmin", "Initialize CnydAdmin contract")
     const tokenContract = await hre.ethers.getContractAt(tokenContractName, taskArgs.token);
     
     const isInit = await adminContract.isInit()
-    console.log("isInit", isInit)
     if (isInit) {
       throw Error ('CnydAdmin has been init')
     }
