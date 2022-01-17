@@ -18,10 +18,10 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 });
 
 
-task("deployCnydToken", "Deploy CnydToken contract")
+task("deployCnydBEP20", "Deploy CnydBEP20 contract")
   .addOptionalParam("verify", "Whether to verify contract, true|false", false, types.boolean)
   .setAction(async (taskArgs) => {
-    const contractName = "CnydToken";
+    const contractName = "CnydBEP20";
     console.log("args: ", taskArgs)
     // If this script is run directly using `node` you may want to call compile
     // manually to make sure everything is compiled

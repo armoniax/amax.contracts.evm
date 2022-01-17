@@ -8,7 +8,7 @@ const { ethers } = require("hardhat");
 
 const B = BigNumber.from;
 
-describe("CnydToken", function () {
+describe("CnydBEP20", function () {
   // global variants
   let accounts;    
   let owner;
@@ -22,8 +22,8 @@ describe("CnydToken", function () {
     users = accounts.slice(1, 3);
   });
 
-  it("test CnydToken", async function () {
-    const Cnyd = await ethers.getContractFactory("CnydToken");
+  it("test CnydBEP20", async function () {
+    const Cnyd = await ethers.getContractFactory("CnydBEP20");
 
     const cnyd = await Cnyd.connect(owner).deploy();
     await cnyd.deployed();
