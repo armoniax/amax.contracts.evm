@@ -53,7 +53,7 @@ const network_accounts = process.env.PRIVATE_KEY !== undefined ? [process.env.PR
  */
 module.exports = {
   solidity: {
-    version: "0.8.7",
+    version: "0.8.9",
     settings: {
       optimizer: {
         enabled: true
