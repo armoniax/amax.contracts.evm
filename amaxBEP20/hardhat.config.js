@@ -18,10 +18,10 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 });
 
 
-task("deployCnydBEP20", "Deploy CnydBEP20 contract")
+task("deployAmaxBEP20", "Deploy AmaxBEP20 contract")
   .addOptionalParam("verify", "Whether to verify contract, true|false", false, types.boolean)
   .setAction(async (taskArgs) => {
-    const contractName = "CnydBEP20";
+    const contractName = "AmaxBEP20";
     console.log("args: ", taskArgs)
     // If this script is run directly using `node` you may want to call compile
     // manually to make sure everything is compiled
@@ -53,7 +53,7 @@ const network_accounts = process.env.PRIVATE_KEY !== undefined ? [process.env.PR
  */
 module.exports = {
   solidity: {
-    version: "0.8.9",
+    version: "0.8.12",
     settings: {
       optimizer: {
         enabled: true
@@ -74,7 +74,7 @@ module.exports = {
       accounts: network_accounts,
     },
     bsc_main: {
-      url: process.env.BSC_MAIN_URL || "https://bsc-dataseed.binance.org/",
+      url: process.env.BSC_MAIN_URL || "https://bsc-dataseed4.ninicoin.io",
       chainId: 56,
       gasPrice: "auto",
       accounts: network_accounts,
